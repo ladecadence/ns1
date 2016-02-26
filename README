@@ -1,0 +1,5 @@
+Tracking code for the fabLAB Asturias Global Space Balloon Challenge 2016
+
+Transmits position/telemetry using APRS and images using SSTV.
+Runs on Raspberry Pi with raspbian, direwolf, pisstv and a handheld HT.
+
