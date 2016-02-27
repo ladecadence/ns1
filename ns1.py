@@ -54,24 +54,11 @@ play_cmd = "/usr/bin/aplay "
 
 ######################################################
 
-# pyaudio object
-#p = pyaudio.PyAudio()
-
-# pyaudio stream
-#audio_stream = p.open(rate=44100, channels=1, 
-#	format=pyaudio.paInt16, 
-#	output=True, 
-#	output_device_index=0,
-#	frames_per_buffer=CHUNK)
-
-
 # GPS
 gps = gsbcgps.GsbcGPS(gsbcgps.SERIAL_PORT, gsbcgps.SERIAL_SPEED)
-
 voltage = "11.8"
 
-# GPIOs
-
+# Set GPIOs
 GPIO.setmode(GPIO.BCM)
 GPIO.setup(PTT_PIN, GPIO.OUT) 
 GPIO.setup(VFO_PIN, GPIO.OUT)
@@ -130,7 +117,7 @@ def gen_aprs_file():
 
     # create APRS message file
     aprs_msg = ID + "-11>WORLD,WIDE2-2:!" + coords + "O" + hdg + "/" + \
-            str(gps.speed) + "/A=" + str(gps.altitude) + "/V=" + str(voltage)
+            str(gps.speed) + "/A=" + str(gps.altitude) + "/V=" + str(voltage) + "\n"
     
     print aprs_msg
     f = open(aprs_data, 'w')
@@ -140,35 +127,16 @@ def gen_aprs_file():
     # create APRS wav file
     print os.system(gen_pkt_cmd + " -o " + aprs_wav + " " + aprs_data)
     
-
+# play commands
 def play_aprs():
-    #wa = wave.open(aprs_wav, 'rb')
-    #data = wa.readframes(CHUNK)
-    #while data != '':
-    #    audio_stream.write(data)
-    #    data = wa.readframes(CHUNK)
-    #audio_stream.stop_stream()
     print os.system(play_cmd + aprs_wav)
     
 def play_sstv():
-    #ws = wave.open(sstv_wav, 'rb')
-    #data = ws.readframes(CHUNK)
-    #while data != '':
-    #    audio_stream.write(data)
-    #    data = ws.readframes(CHUNK)
-    #audio_stream.stop_stream()
     print os.system(play_cmd + sstv_wav)
 
-if __name__ == "__main__":
-    # start and wait for gps
-    #count = p.get_device_count()
-    #devices = []
-    #for i in range(count):
-    #    devices.append(p.get_device_info_by_index(i))
-#
-#    for i, dev in enumerate(devices):
-#        print "%d - %s" % (i, dev['name'])
+######################### MAIN ##############################
 
+if __name__ == "__main__":
     while 1:
         # each minute send APRS packet
         for i in range(APRS_REPEAT):
