@@ -15,7 +15,12 @@ import gsbcgps
 
 # ID
 ID="EA1IDZ"
-SUBID="NS1"
+SUBID="/NS1"
+
+# Test
+TEST_MSG1="EA1IDZ test baliza APRS/SSTV"
+TEST_MSG2="ea1idz@ladecadence.net"
+TEST_MSG=True
 
 # pins
 PTT_PIN=14
@@ -82,7 +87,7 @@ def change_vfo():
 def gen_sstv_file():
     # take picture
     hour_date = datetime.datetime.now()
-    hour_date = "%d-%d-%d_%d:%d" % (hour_date.day, hour_date.month, \
+    hour_date = "%02d-%02d-%d_%02d:%02d" % (hour_date.day, hour_date.month, \
 	hour_date.year, hour_date.hour, hour_date.minute)
     
     pic_name = pics_dir + "sstvpic_" + hour_date + ".png"
@@ -93,20 +98,31 @@ def gen_sstv_file():
 
     # add ID and date to the picture
     print os.system(mogrify_cmd + "-fill white -pointsize 24 -draw " + \
-            "\"text 10,40 '" + ID + "'\" " + sstv_png)
+            "\"text 10,40 '" + ID + SUBID + "'\" " + sstv_png)
     print os.system(mogrify_cmd + "-pointsize 24 -draw " + \
-            "\"text 12,42 '" + ID + "'\" " + sstv_png)
+            "\"text 12,42 '" + ID + SUBID + "'\" " + sstv_png)
     print os.system(mogrify_cmd + "-pointsize 14 -draw " + \
             "\"text 10,60 '" + hour_date + "'\" " + sstv_png)
     print os.system(mogrify_cmd + "-fill white -pointsize 14 -draw " + \
             "\"text 11,61 '" + hour_date + "'\" " + sstv_png)
     
+    if TEST_MSG:
+    	print os.system(mogrify_cmd + "-fill black -pointsize 18 -draw " + \
+            "\"text 10,85 '" + TEST_MSG1 + "'\" " + sstv_png)
+    	print os.system(mogrify_cmd + "-fill white -pointsize 18 -draw " + \
+            "\"text 11,86 '" + TEST_MSG1 + "'\" " + sstv_png)
+    	print os.system(mogrify_cmd + "-fill black -pointsize 18 -draw " + \
+            "\"text 10,105 '" + TEST_MSG2 + "'\" " + sstv_png)
+    	print os.system(mogrify_cmd + "-fill white -pointsize 18 -draw " + \
+            "\"text 11,106 '" + TEST_MSG2 + "'\" " + sstv_png)
+ 
+
     # generate sound file
     print os.system(pisstv_cmd + sstv_png)
 
 def gen_aprs_file():
     # get data from GPS and sensors
-    #gps.update()
+    gps.update()
     # generate APRS format coordinates
     coords = "%07.2f%s/%08.2f%s" % (float(gps.latitude), gps.ns, float(gps.longitude), gps.ew)
 
@@ -117,7 +133,11 @@ def gen_aprs_file():
 
     # create APRS message file
     aprs_msg = ID + "-11>WORLD,WIDE2-2:!" + coords + "O" + hdg + "/" + \
-            str(gps.speed) + "/A=" + str(gps.altitude) + "/V=" + str(voltage) + "\n"
+            str(gps.speed) + "/A=" + str(gps.altitude) + "/V=" + str(voltage) 
+    if TEST_MSG:
+	aprs_msg = aprs_msg + "/" + TEST_MSG1 + " " + TEST_MSG2 + "\n"
+    else:
+	aprs_msg = aprs_msg + "\n"
     
     print aprs_msg
     f = open(aprs_data, 'w')
