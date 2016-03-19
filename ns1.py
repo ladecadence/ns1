@@ -23,8 +23,12 @@ TEST_MSG2="ea1idz@ladecadence.net"
 TEST_MSG=True
 
 # pins
-PTT_PIN=14
-VFO_PIN=5
+PTT_PIN=22	# PIN 15
+VFO_PIN=27	# PIN 13
+
+# GPS
+GPS_SERIAL = "/dev/ttyAMA0"
+GPS_SPEED = 9600
 
 # delays
 APRS_REPEAT=5
@@ -49,7 +53,7 @@ gen_pkt_cmd = directory + "direwolf/gen_packets"
 
 # snapsstv
 pics_dir = directory + "pictures/"
-raspistill_cmd = "/usr/bin/raspistill -t 1 -e png " 
+raspistill_cmd = "/usr/bin/raspistill -t 1 -e png -ISO 800 " 
 convert_cmd = "/usr/bin/convert "
 mogrify_cmd = "/usr/bin/mogrify "
 pisstv_cmd = "pisstvpp/pisstvpp -pr36 -r44100 "
@@ -60,7 +64,7 @@ play_cmd = "/usr/bin/aplay "
 ######################################################
 
 # GPS
-gps = gsbcgps.GsbcGPS(gsbcgps.SERIAL_PORT, gsbcgps.SERIAL_SPEED)
+gps = gsbcgps.GsbcGPS(GPS_SERIAL, GPS_SPEED)
 voltage = "11.8"
 
 # Set GPIOs

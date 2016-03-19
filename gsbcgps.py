@@ -33,21 +33,25 @@ class GsbcGPS:
         # now parse data
         gga_data = self.line_gga.split(",")
         rmc_data = self.line_rmc.split(",")
-        
-        # good fix?
-        if int(gga_data[7]) < 4:
-            self.sats = int(gga_data[7])
-            return
-        
-        # ok, good fix, record data
-        self.latitude = gga_data[2]
-        self.ns = gga_data[3]
-        self.longitude = gga_data[4]
-        self.ew = gga_data[5]
-        self.sats = gga_data[7]
-        self.altitude = gga_data[9]
-        self.speed = rmc_data[7]
-        self.heading = rmc_data[8]
+
+	if len(gga_data) >= 9 and len(rmc_data) >=8:
+		try:         
+			# good fix?
+			if int(gga_data[7]) < 4:
+			    self.sats = int(gga_data[7])
+			    return
+		
+			# ok, good fix, record data
+			self.latitude = gga_data[2]
+			self.ns = gga_data[3]
+			self.longitude = gga_data[4]
+			self.ew = gga_data[5]
+			self.sats = gga_data[7]
+			self.altitude = gga_data[9]
+			self.speed = rmc_data[7]
+			self.heading = rmc_data[8]
+		except:
+			pass
 
     def good_fix(self):
         self.update()
