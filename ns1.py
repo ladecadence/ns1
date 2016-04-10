@@ -52,8 +52,9 @@ aprs_wav = directory + "aprs.wav"
 gen_pkt_cmd = directory + "direwolf/gen_packets"
 
 # snapsstv
-pics_dir = directory + "pictures/"
-raspistill_cmd = "/usr/bin/raspistill -t 1 -e png -ISO 800 " 
+#pics_dir = directory + "pictures/"
+pics_dir = "/media/GSBC-PICS/"
+raspistill_cmd = "/usr/bin/raspistill -t 1 -e png " 
 convert_cmd = "/usr/bin/convert "
 mogrify_cmd = "/usr/bin/mogrify "
 pisstv_cmd = "pisstvpp/pisstvpp -pr36 -r44100 "
@@ -91,7 +92,7 @@ def change_vfo():
 def gen_sstv_file():
     # take picture
     hour_date = datetime.datetime.now()
-    hour_date = "%02d-%02d-%d_%02d:%02d" % (hour_date.day, hour_date.month, \
+    hour_date = "%02d-%02d-%d_%02d_%02d" % (hour_date.day, hour_date.month, \
 	hour_date.year, hour_date.hour, hour_date.minute)
     
     pic_name = pics_dir + "sstvpic_" + hour_date + ".png"
@@ -128,7 +129,10 @@ def gen_aprs_file():
     # get data from GPS and sensors
     gps.update()
     # generate APRS format coordinates
-    coords = "%07.2f%s/%08.2f%s" % (float(gps.latitude), gps.ns, float(gps.longitude), gps.ew)
+    try:
+	    coords = "%07.2f%s/%08.2f%s" % (float(gps.latitude), gps.ns, float(gps.longitude), gps.ew)
+    except:
+		coords = "XXXX.XX/XXXXX.XX"
 
     if gps.heading == "":
         hdg = "0"
@@ -161,22 +165,26 @@ def play_sstv():
 ######################### MAIN ##############################
 
 if __name__ == "__main__":
-    while 1:
-        # each minute send APRS packet
-        for i in range(APRS_REPEAT):
-            gen_aprs_file()
-            ptt_on()
-            play_aprs()
-            ptt_off()
-            # wait X secs
-            time.sleep(APRS_DELAY)
-        
-        # send sstv image
-        change_vfo()
-        gen_sstv_file()
-        ptt_on()
-        play_sstv()
-        ptt_off()
-        change_vfo()
-        time.sleep(5)
+
+	# be sure that the pictures drive is mounted
+	os.system("udisks --mount /dev/sda1")	
+
+	while 1:
+		# each minute send APRS packet
+		for i in range(APRS_REPEAT):
+			gen_aprs_file()
+			ptt_on()
+			play_aprs()
+			ptt_off()
+			# wait X secs
+			time.sleep(APRS_DELAY)
+		
+		# send sstv image
+		#change_vfo()
+		gen_sstv_file()
+		ptt_on()
+		play_sstv()
+		ptt_off()
+		#change_vfo()
+		time.sleep(5)
 
