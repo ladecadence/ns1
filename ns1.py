@@ -9,7 +9,7 @@ import datetime
 import RPi.GPIO as GPIO
 
 import gsbcgps
-
+import mcp3008
 
 ############ CONFIGURATION ############
 
@@ -25,6 +25,10 @@ TEST_MSG=True
 # pins
 PTT_PIN=22	# PIN 15
 VFO_PIN=27	# PIN 13
+SPI_CLK=11
+SPI_MISO=9
+SPI_MOSI=10
+SPI_CS0=8
 
 # GPS
 GPS_SERIAL = "/dev/ttyAMA0"
@@ -34,8 +38,12 @@ GPS_SPEED = 9600
 APRS_REPEAT=5
 APRS_DELAY=10
 
-# wave buffer
-CHUNK=128
+# voltage ADC channel
+VOLT_ADC = 0
+# voltage correction
+VOLT_MULTIPLIER = 1
+
+# FILES AND PROGRAMS
 
 # directory END SLASH!!!
 directory = "/home/pi/gsbc/"
@@ -72,6 +80,9 @@ voltage = "11.8"
 GPIO.setmode(GPIO.BCM)
 GPIO.setup(PTT_PIN, GPIO.OUT) 
 GPIO.setup(VFO_PIN, GPIO.OUT)
+
+# ADC
+adc = Mcp3008(SPI_CLK, SPI_MOSI, SPI_MISO, SPI_CE0)
 
 
 
@@ -128,6 +139,7 @@ def gen_sstv_file():
 def gen_aprs_file():
     # get data from GPS and sensors
     gps.update()
+    voltage = adc.read(0)
     # generate APRS format coordinates
     try:
 	    coords = "%07.2f%s/%08.2f%s" % (float(gps.latitude), gps.ns, float(gps.longitude), gps.ew)
