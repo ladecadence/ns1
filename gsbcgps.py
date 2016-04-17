@@ -3,7 +3,7 @@ import sys
 import serial
 import time
 
-SERIAL_PORT = "/dev/ttyUSB0"
+SERIAL_PORT = "/dev/ttyAMA0"
 SERIAL_SPEED = "9600"
 
 class GsbcGPS:

@@ -7,9 +7,11 @@ import wave
 import time
 import datetime
 import RPi.GPIO as GPIO
+import Adafruit_BMP.BMP085 as BMP085
 
 import gsbcgps
 import mcp3008
+import ds18b20
 
 ############ CONFIGURATION ############
 
@@ -28,20 +30,25 @@ VFO_PIN=27	# PIN 13
 SPI_CLK=11
 SPI_MISO=9
 SPI_MOSI=10
-SPI_CS0=8
+SPI_CE0=8
+BATT_EN_PIN=25
 
 # GPS
 GPS_SERIAL = "/dev/ttyAMA0"
 GPS_SPEED = 9600
 
 # delays
-APRS_REPEAT=5
+APRS_REPEAT=10
 APRS_DELAY=10
 
 # voltage ADC channel
 VOLT_ADC = 0
 # voltage correction
 VOLT_MULTIPLIER = 1
+
+# temperature sensors
+TEMP_INT_ADDR = "28-0000079ee65f"
+TEMP_EXT_ADDR = ""
 
 # FILES AND PROGRAMS
 
@@ -74,17 +81,27 @@ play_cmd = "/usr/bin/aplay "
 
 # GPS
 gps = gsbcgps.GsbcGPS(GPS_SERIAL, GPS_SPEED)
-voltage = "11.8"
 
 # Set GPIOs
 GPIO.setmode(GPIO.BCM)
-GPIO.setup(PTT_PIN, GPIO.OUT) 
+
+GPIO.setup(PTT_PIN, GPIO.OUT)
+GPIO.output(PTT_PIN, False) 
+
 GPIO.setup(VFO_PIN, GPIO.OUT)
+GPIO.output(VFO_PIN, False) 
+
+GPIO.setup(BATT_EN_PIN, GPIO.OUT)
+GPIO.output(BATT_EN_PIN, False) 
 
 # ADC
-adc = Mcp3008(SPI_CLK, SPI_MOSI, SPI_MISO, SPI_CE0)
+adc = mcp3008.Mcp3008(SPI_CLK, SPI_MOSI, SPI_MISO, SPI_CE0)
 
+# Barometer
+baro = BMP085.BMP085(mode=BMP085.BMP085_HIGHRES)
 
+# temperature sensors
+ds18b20_int = ds18b20.Ds18b20(TEMP_INT_ADDR)
 
 ######################################################
 
@@ -99,6 +116,13 @@ def change_vfo():
     GPIO.output(VFO_PIN, True)
     time.sleep(0.1)
     GPIO.output(VFO_PIN, False)
+
+def read_voltage():
+    # adc value
+    adc_value=adc.read(VOLT_ADC)
+    # voltage divisor is 1/2 at 3.3V, 10bit ADC so
+    v = VOLT_MULTIPLIER * 2 * (adc_value*3.3/1023.0)
+    return v
 
 def gen_sstv_file():
     # take picture
@@ -139,7 +163,16 @@ def gen_sstv_file():
 def gen_aprs_file():
     # get data from GPS and sensors
     gps.update()
-    voltage = adc.read(0)
+    voltage = read_voltage()
+    baro_pressure = baro.read_pressure()
+    baro_altitude = baro.read_altitude()
+    baro_temp = baro.read_temperature()
+    temp_int = ds18b20_int.read()
+    hour_date = datetime.datetime.now()
+    hour_date = "/%02d-%02d-%d/%02d:%02d" % (hour_date.day, hour_date.month, \
+	hour_date.year, hour_date.hour, hour_date.minute)
+    
+
     # generate APRS format coordinates
     try:
 	    coords = "%07.2f%s/%08.2f%s" % (float(gps.latitude), gps.ns, float(gps.longitude), gps.ew)
@@ -153,7 +186,9 @@ def gen_aprs_file():
 
     # create APRS message file
     aprs_msg = ID + "-11>WORLD,WIDE2-2:!" + coords + "O" + hdg + "/" + \
-            str(gps.speed) + "/A=" + str(gps.altitude) + "/V=" + str(voltage) 
+            str(gps.speed) + "/A=" + str(gps.altitude) + "/V=" + "%.2f" % voltage + \
+	    "/P=" + "%.1f" % (baro_pressure/100) + "/TI=" + "%.2f" % temp_int + \
+	    "/TO=" + "%.2f" % baro_temp + hour_date
     if TEST_MSG:
 	aprs_msg = aprs_msg + "/" + TEST_MSG1 + " " + TEST_MSG2 + "\n"
     else:
