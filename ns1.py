@@ -188,7 +188,8 @@ def gen_aprs_file():
     aprs_msg = ID + "-11>WORLD,WIDE2-2:!" + coords + "O" + hdg + "/" + \
             str(gps.speed) + "/A=" + str(gps.altitude) + "/V=" + "%.2f" % voltage + \
 	    "/P=" + "%.1f" % (baro_pressure/100) + "/TI=" + "%.2f" % temp_int + \
-	    "/TO=" + "%.2f" % baro_temp + hour_date
+	    "/TO=" + "%.2f" % baro_temp + hour_date + "/LAT=" + gps.latitude + \
+	    gps.ns + "/LON=" + gps.longitude + gps.ew
     if TEST_MSG:
 	aprs_msg = aprs_msg + "/" + TEST_MSG1 + " " + TEST_MSG2 + "\n"
     else:
