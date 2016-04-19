@@ -38,7 +38,7 @@ GPS_SERIAL = "/dev/ttyAMA0"
 GPS_SPEED = 9600
 
 # delays
-APRS_REPEAT=10
+APRS_REPEAT=2
 APRS_DELAY=10
 
 # voltage ADC channel
@@ -69,7 +69,7 @@ gen_pkt_cmd = directory + "direwolf/gen_packets"
 # snapsstv
 #pics_dir = directory + "pictures/"
 pics_dir = "/media/GSBC-PICS/"
-raspistill_cmd = "/usr/bin/raspistill -t 1 -e png " 
+raspistill_cmd = "/usr/bin/raspistill -t 1 -ISO 100 -e png " 
 convert_cmd = "/usr/bin/convert "
 mogrify_cmd = "/usr/bin/mogrify "
 pisstv_cmd = "pisstvpp/pisstvpp -pr36 -r44100 "
@@ -188,8 +188,8 @@ def gen_aprs_file():
     aprs_msg = ID + "-11>WORLD,WIDE2-2:!" + coords + "O" + hdg + "/" + \
             str(gps.speed) + "/A=" + str(gps.altitude) + "/V=" + "%.2f" % voltage + \
 	    "/P=" + "%.1f" % (baro_pressure/100) + "/TI=" + "%.2f" % temp_int + \
-	    "/TO=" + "%.2f" % baro_temp + hour_date + "/LAT=" + gps.latitude + \
-	    gps.ns + "/LON=" + gps.longitude + gps.ew
+	    "/TO=" + "%.2f" % baro_temp + hour_date + "/GPS=" + gps.latitude + \
+	    gps.ns + "," + gps.longitude + gps.ew
     if TEST_MSG:
 	aprs_msg = aprs_msg + "/" + TEST_MSG1 + " " + TEST_MSG2 + "\n"
     else:
