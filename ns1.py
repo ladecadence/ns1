@@ -38,7 +38,7 @@ GPS_SERIAL = "/dev/ttyAMA0"
 GPS_SPEED = 9600
 
 # delays
-APRS_REPEAT=2
+APRS_REPEAT=12
 APRS_DELAY=10
 
 # voltage ADC channel
@@ -169,8 +169,8 @@ def gen_aprs_file():
     baro_temp = baro.read_temperature()
     temp_int = ds18b20_int.read()
     hour_date = datetime.datetime.now()
-    hour_date = "/%02d-%02d-%d/%02d:%02d" % (hour_date.day, hour_date.month, \
-	hour_date.year, hour_date.hour, hour_date.minute)
+    hour_date = "/%02d-%02d-%d/%02d:%02d:%02d" % (hour_date.day, hour_date.month, \
+	hour_date.year, hour_date.hour, hour_date.minute, hour_date.second)
     
 
     # generate APRS format coordinates
@@ -188,8 +188,8 @@ def gen_aprs_file():
     aprs_msg = ID + "-11>WORLD,WIDE2-2:!" + coords + "O" + hdg + "/" + \
             str(gps.speed) + "/A=" + str(gps.altitude) + "/V=" + "%.2f" % voltage + \
 	    "/P=" + "%.1f" % (baro_pressure/100) + "/TI=" + "%.2f" % temp_int + \
-	    "/TO=" + "%.2f" % baro_temp + hour_date + "/GPS=" + gps.latitude + \
-	    gps.ns + "," + gps.longitude + gps.ew
+	    "/TO=" + "%.2f" % baro_temp + hour_date + "/GPS=" + str(gps.decimal_latitude()) + \
+	    gps.ns + "," + str(gps.decimal_longitude()) + gps.ew
     if TEST_MSG:
 	aprs_msg = aprs_msg + "/" + TEST_MSG1 + " " + TEST_MSG2 + "\n"
     else:

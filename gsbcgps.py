@@ -8,9 +8,9 @@ SERIAL_SPEED = "9600"
 
 class GsbcGPS:
     def __init__(self, serial_port, serial_speed):
-        self.latitude = 4331.50
+        self.latitude = "4331.50"
 	self.ns="N"
-        self.longitude = 00536.76
+        self.longitude = "00536.76"
 	self.ew="W"
         self.altitude = 0
         self.sats = 0
@@ -59,6 +59,20 @@ class GsbcGPS:
             return True
         else:
             return False
+
+    def decimal_longitude(self):
+	degrees = float(self.longitude[:3])
+	fraction = float(self.longitude[3:]) / 60
+	
+	return degrees + fraction
+
+    def decimal_latitude(self):
+	degrees = float(self.latitude[:2])
+	fraction = float(self.latitude[2:]) / 60
+	
+	return degrees + fraction
+
+ 
 
 
 if __name__ == "__main__":
