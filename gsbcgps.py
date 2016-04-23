@@ -61,14 +61,22 @@ class GsbcGPS:
             return False
 
     def decimal_longitude(self):
-	degrees = float(self.longitude[:3])
-	fraction = float(self.longitude[3:]) / 60
+	try:
+		degrees = float(self.longitude[:3])
+		fraction = float(self.longitude[3:]) / 60
+	except:
+		degrees = 0
+		fraction = 0
 	
 	return degrees + fraction
 
     def decimal_latitude(self):
-	degrees = float(self.latitude[:2])
-	fraction = float(self.latitude[2:]) / 60
+	try:
+		degrees = float(self.latitude[:2])
+		fraction = float(self.latitude[2:]) / 60
+	except:
+		degrees = 0
+		fraction = 0
 	
 	return degrees + fraction
 

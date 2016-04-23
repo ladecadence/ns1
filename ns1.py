@@ -8,6 +8,7 @@ import time
 import datetime
 import RPi.GPIO as GPIO
 import Adafruit_BMP.BMP085 as BMP085
+import logging
 
 import gsbcgps
 import mcp3008
@@ -38,8 +39,8 @@ GPS_SERIAL = "/dev/ttyAMA0"
 GPS_SPEED = 9600
 
 # delays
-APRS_REPEAT=12
-APRS_DELAY=10
+APRS_REPEAT=20
+APRS_DELAY=28
 
 # voltage ADC channel
 VOLT_ADC = 0
@@ -48,7 +49,7 @@ VOLT_MULTIPLIER = 1
 
 # temperature sensors
 TEMP_INT_ADDR = "28-0000079ee65f"
-TEMP_EXT_ADDR = ""
+TEMP_EXT_ADDR = "28-0000079e9f12"
 
 # FILES AND PROGRAMS
 
@@ -79,6 +80,9 @@ play_cmd = "/usr/bin/aplay "
 
 ######################################################
 
+# logging
+log_file = directory + "log.txt"
+
 # GPS
 gps = gsbcgps.GsbcGPS(GPS_SERIAL, GPS_SPEED)
 
@@ -102,6 +106,7 @@ baro = BMP085.BMP085(mode=BMP085.BMP085_HIGHRES)
 
 # temperature sensors
 ds18b20_int = ds18b20.Ds18b20(TEMP_INT_ADDR)
+ds18b20_ext = ds18b20.Ds18b20(TEMP_EXT_ADDR)
 
 ######################################################
 
@@ -131,43 +136,59 @@ def gen_sstv_file():
 	hour_date.year, hour_date.hour, hour_date.minute)
     
     pic_name = pics_dir + "sstvpic_" + hour_date + ".png"
-    print os.system(raspistill_cmd + "-o " + pic_name)
+    stat =  os.system(raspistill_cmd + "-o " + pic_name)
+    logging.info("taking picture: " + str(stat))
+
 
     # generate 320x256 picture
-    print os.system(convert_cmd + pic_name + " -resize 320x256 " + sstv_png)
+    stat =  os.system(convert_cmd + pic_name + " -resize 320x256 " + sstv_png)
+    logging.info("resize picture: " + str(stat))
 
     # add ID and date to the picture
-    print os.system(mogrify_cmd + "-fill white -pointsize 24 -draw " + \
+    stat = os.system(mogrify_cmd + "-fill white -pointsize 24 -draw " + \
             "\"text 10,40 '" + ID + SUBID + "'\" " + sstv_png)
-    print os.system(mogrify_cmd + "-pointsize 24 -draw " + \
+    logging.info("Add ID 1: " + str(stat))
+    stat =  os.system(mogrify_cmd + "-pointsize 24 -draw " + \
             "\"text 12,42 '" + ID + SUBID + "'\" " + sstv_png)
-    print os.system(mogrify_cmd + "-pointsize 14 -draw " + \
+    logging.info("Add ID 2: " + str(stat))
+    stat =  os.system(mogrify_cmd + "-pointsize 14 -draw " + \
             "\"text 10,60 '" + hour_date + "'\" " + sstv_png)
-    print os.system(mogrify_cmd + "-fill white -pointsize 14 -draw " + \
+    logging.info("Add Date 1: " + str(stat))
+    stat =  os.system(mogrify_cmd + "-fill white -pointsize 14 -draw " + \
             "\"text 11,61 '" + hour_date + "'\" " + sstv_png)
+    logging.info("Add Date 2: " + str(stat))
     
     if TEST_MSG:
-    	print os.system(mogrify_cmd + "-fill black -pointsize 18 -draw " + \
+    	stat =  os.system(mogrify_cmd + "-fill black -pointsize 18 -draw " + \
             "\"text 10,85 '" + TEST_MSG1 + "'\" " + sstv_png)
-    	print os.system(mogrify_cmd + "-fill white -pointsize 18 -draw " + \
+    	stat =  os.system(mogrify_cmd + "-fill white -pointsize 18 -draw " + \
             "\"text 11,86 '" + TEST_MSG1 + "'\" " + sstv_png)
-    	print os.system(mogrify_cmd + "-fill black -pointsize 18 -draw " + \
+    	stat =  os.system(mogrify_cmd + "-fill black -pointsize 18 -draw " + \
             "\"text 10,105 '" + TEST_MSG2 + "'\" " + sstv_png)
-    	print os.system(mogrify_cmd + "-fill white -pointsize 18 -draw " + \
+    	stat =  os.system(mogrify_cmd + "-fill white -pointsize 18 -draw " + \
             "\"text 11,106 '" + TEST_MSG2 + "'\" " + sstv_png)
- 
+	logging.info("Add test MSG: " + str(stat))
+ 	
 
     # generate sound file
-    print os.system(pisstv_cmd + sstv_png)
+    stat =  os.system(pisstv_cmd + sstv_png)
+    logging.info("Generate SSTV Audio: " + str(stat))
 
 def gen_aprs_file():
     # get data from GPS and sensors
     gps.update()
+    logging.info("Got GPS")
     voltage = read_voltage()
+    logging.info("Got Batt")
     baro_pressure = baro.read_pressure()
+    logging.info("Got Baro")
     baro_altitude = baro.read_altitude()
+    logging.info("Got Baro alt")
     baro_temp = baro.read_temperature()
+    logging.info("Got Baro temp")
     temp_int = ds18b20_int.read()
+    temp_ext = ds18b20_ext.read()
+    logging.info("Got Temp")
     hour_date = datetime.datetime.now()
     hour_date = "/%02d-%02d-%d/%02d:%02d:%02d" % (hour_date.day, hour_date.month, \
 	hour_date.year, hour_date.hour, hour_date.minute, hour_date.second)
@@ -188,8 +209,9 @@ def gen_aprs_file():
     aprs_msg = ID + "-11>WORLD,WIDE2-2:!" + coords + "O" + hdg + "/" + \
             str(gps.speed) + "/A=" + str(gps.altitude) + "/V=" + "%.2f" % voltage + \
 	    "/P=" + "%.1f" % (baro_pressure/100) + "/TI=" + "%.2f" % temp_int + \
-	    "/TO=" + "%.2f" % baro_temp + hour_date + "/GPS=" + str(gps.decimal_latitude()) + \
-	    gps.ns + "," + str(gps.decimal_longitude()) + gps.ew
+	    "/TO=" + "%.2f" % temp_ext + hour_date + "/GPS=" + \
+		"%09.6f%s,%010.6f%s" % (gps.decimal_latitude(), gps.ns , \
+		gps.decimal_longitude(), gps.ew)
     if TEST_MSG:
 	aprs_msg = aprs_msg + "/" + TEST_MSG1 + " " + TEST_MSG2 + "\n"
     else:
@@ -201,21 +223,28 @@ def gen_aprs_file():
     f.close()
 
     # create APRS wav file
-    print os.system(gen_pkt_cmd + " -o " + aprs_wav + " " + aprs_data)
+    stat =  os.system(gen_pkt_cmd + " -o " + aprs_wav + " " + aprs_data)
+    logging.info("Created APRS wav: " + str(stat))
     
 # play commands
 def play_aprs():
-    print os.system(play_cmd + aprs_wav)
+    stat = os.system(play_cmd + aprs_wav)
+    logging.info("Played APRS wav: " + str(stat))
     
 def play_sstv():
-    print os.system(play_cmd + sstv_wav)
+    stat = os.system(play_cmd + sstv_wav)
+    logging.info("Played SSTV wav: " + str(stat))
 
 ######################### MAIN ##############################
 
 if __name__ == "__main__":
 
+	# init logging
+	logging.basicConfig(filename=log_file, level=logging.INFO)
+
 	# be sure that the pictures drive is mounted
-	os.system("udisks --mount /dev/sda1")	
+	mount = os.system("udisks --mount /dev/sda1")	
+	logging.info("mounting pendrive: " + str(mount))
 
 	while 1:
 		# each minute send APRS packet
