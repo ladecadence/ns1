@@ -45,6 +45,7 @@ APRS_DELAY=28
 # voltage ADC channel
 VOLT_ADC = 0
 # voltage correction
+VOLT_DIVIDER = 3.2
 VOLT_MULTIPLIER = 1
 
 # temperature sensors
@@ -125,8 +126,8 @@ def change_vfo():
 def read_voltage():
     # adc value
     adc_value=adc.read(VOLT_ADC)
-    # voltage divisor is 1/2 at 3.3V, 10bit ADC so
-    v = VOLT_MULTIPLIER * 2 * (adc_value*3.3/1023.0)
+    # voltage divisor at 3.3V, 10bit ADC so
+    v = VOLT_MULTIPLIER * VOLT_DIVIDER * (adc_value*3.3/1023.0)
     return v
 
 def gen_sstv_file():
@@ -198,6 +199,7 @@ def gen_aprs_file():
     try:
 	    coords = "%07.2f%s/%08.2f%s" % (float(gps.latitude), gps.ns, float(gps.longitude), gps.ew)
     except:
+		logging.warning("GPS: " + gps.latitude + " " + gps.longitude)
 		coords = "XXXX.XX/XXXXX.XX"
 
     if gps.heading == "":
