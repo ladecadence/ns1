@@ -3,3 +3,6 @@ Tracking code for the fabLAB Asturias Global Space Balloon Challenge 2016
 Transmits position/telemetry using APRS and images using SSTV.
 Runs on Raspberry Pi with raspbian, direwolf, pisstvpp and a handheld HT.
 
+See: http://wiki.ashab.space/doku.php?id=nearspaceone (Spanish)
+
+
