@@ -40,7 +40,7 @@ GPS_SPEED = 9600
 
 # delays
 APRS_REPEAT=20
-APRS_DELAY=28
+APRS_DELAY=26
 
 # voltage ADC channel
 VOLT_ADC = 0
