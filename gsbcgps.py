@@ -9,16 +9,18 @@ SERIAL_SPEED = "9600"
 class GsbcGPS:
     def __init__(self, serial_port, serial_speed):
         self.latitude = "4331.50"
-	self.ns="N"
+        self.ns="N"
         self.longitude = "00536.76"
-	self.ew="W"
+        self.ew="W"
         self.altitude = 0
         self.sats = 0
         self.heading = 0
         self.speed = 0
-        
-        self.port = serial.Serial(serial_port, serial_speed, timeout=1)
-    
+        self.line_gga = ""
+        self.line_rmc = ""
+
+        self.port = serial.Serial(serial_port, serial_speed, timeout=3)
+
     def update(self):
         # get GGA line from serial port
         self.line_gga = ""
@@ -34,24 +36,26 @@ class GsbcGPS:
         gga_data = self.line_gga.split(",")
         rmc_data = self.line_rmc.split(",")
 
-	if len(gga_data) >= 9 and len(rmc_data) >=8:
-		try:         
-			# good fix?
-			if int(gga_data[7]) < 4:
-			    self.sats = int(gga_data[7])
-			    return
-		
-			# ok, good fix, record data
-			self.latitude = gga_data[2]
-			self.ns = gga_data[3]
-			self.longitude = gga_data[4]
-			self.ew = gga_data[5]
-			self.sats = gga_data[7]
-			self.altitude = gga_data[9]
-			self.speed = rmc_data[7]
-			self.heading = rmc_data[8]
-		except:
-			pass
+        if len(gga_data) >= 9 and len(rmc_data) >=8:
+            try:         
+                # good fix?
+                        if int(gga_data[7]) < 4:
+                            self.sats = int(gga_data[7])
+                            return
+
+                        # ok, good fix, record data
+                        self.latitude = gga_data[2]
+                        self.ns = gga_data[3]
+                        self.longitude = gga_data[4]
+                        self.ew = gga_data[5]
+                        self.sats = int(gga_data[7])
+                        self.altitude = gga_data[9]
+                        self.speed = rmc_data[7]
+                        self.heading = rmc_data[8]
+                        if self.heading == "":
+                            self.heading = 0
+            except:
+                pass
 
     def good_fix(self):
         self.update()
@@ -61,31 +65,35 @@ class GsbcGPS:
             return False
 
     def decimal_longitude(self):
-	try:
-		degrees = float(self.longitude[:3])
-		fraction = float(self.longitude[3:]) / 60
-	except:
-		degrees = 0
-		fraction = 0
-	
-	return degrees + fraction
+        try:
+            degrees = float(self.longitude[:3])
+            fraction = float(self.longitude[3:]) / 60
+        except:
+            degrees = 0
+            fraction = 0
+
+        return degrees + fraction
 
     def decimal_latitude(self):
-	try:
-		degrees = float(self.latitude[:2])
-		fraction = float(self.latitude[2:]) / 60
-	except:
-		degrees = 0
-		fraction = 0
-	
-	return degrees + fraction
+        try:
+            degrees = float(self.latitude[:2])
+            fraction = float(self.latitude[2:]) / 60
+        except:
+            degrees = 0
+            fraction = 0
 
- 
+        return degrees + fraction
+
+
 
 
 if __name__ == "__main__":
-    gps = GsbcGPS(SERIAL_PORT, SERIAL_SPEED)
-    
+   
+    if len(sys.argv) < 2:
+        gps = GsbcGPS(SERIAL_PORT, SERIAL_SPEED)
+    else:
+        gps = GsbcGPS(sys.argv[1], SERIAL_SPEED)
+
     while 1:
         gps.update()
         #print gps.line_gga
@@ -98,4 +106,5 @@ if __name__ == "__main__":
             print ", alt: " + str(gps.altitude),
             print ", speed: " + str(gps.speed),
             print ", hdg: " + str(gps.heading)
+            print gps.line_gga
         time.sleep(1)
