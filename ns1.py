@@ -133,8 +133,9 @@ def read_voltage():
 def gen_sstv_file():
     # take picture
     hour_date = datetime.datetime.now()
-    hour_date = "%02d-%02d-%d_%02d_%02d" % (hour_date.day, hour_date.month, \
-	hour_date.year, hour_date.hour, hour_date.minute)
+    hour_date = "%02d-%02d-%d_%02d_%02d" % (hour_date.day, \
+        hour_date.month, hour_date.year, hour_date.hour, \
+        hour_date.minute)
    
     try: 
 	    pic_name = pics_dir + "sstvpic_" + hour_date + ".png"
@@ -143,31 +144,40 @@ def gen_sstv_file():
 
 
 	    # generate 320x256 picture
-	    stat =  os.system(convert_cmd + pic_name + " -resize 320x256 " + sstv_png)
+	    stat =  os.system(convert_cmd + pic_name + \
+                    " -resize 320x256 " + sstv_png)
 	    logging.info("resize picture: " + str(stat))
 
 	    # add ID and date to the picture
-	    stat = os.system(mogrify_cmd + "-fill white -pointsize 24 -draw " + \
+	    stat = os.system(mogrify_cmd + \
+                    "-fill white -pointsize 24 -draw " + \
 		    "\"text 10,40 '" + ID + SUBID + "'\" " + sstv_png)
 	    logging.info("Add ID 1: " + str(stat))
-	    stat =  os.system(mogrify_cmd + "-pointsize 24 -draw " + \
+	    stat =  os.system(mogrify_cmd + \
+                    "-pointsize 24 -draw " + \
 		    "\"text 12,42 '" + ID + SUBID + "'\" " + sstv_png)
 	    logging.info("Add ID 2: " + str(stat))
-	    stat =  os.system(mogrify_cmd + "-pointsize 14 -draw " + \
+	    stat =  os.system(mogrify_cmd + \
+                    "-pointsize 14 -draw " + \
 		    "\"text 10,60 '" + hour_date + "'\" " + sstv_png)
 	    logging.info("Add Date 1: " + str(stat))
-	    stat =  os.system(mogrify_cmd + "-fill white -pointsize 14 -draw " + \
+	    stat =  os.system(mogrify_cmd + \
+                    "-fill white -pointsize 14 -draw " + \
 		    "\"text 11,61 '" + hour_date + "'\" " + sstv_png)
 	    logging.info("Add Date 2: " + str(stat))
 	    
 	    if TEST_MSG:
-		stat =  os.system(mogrify_cmd + "-fill black -pointsize 18 -draw " + \
+                stat =  os.system(mogrify_cmd + \
+                    "-fill black -pointsize 18 -draw " + \
 		    "\"text 10,85 '" + TEST_MSG1 + "'\" " + sstv_png)
-		stat =  os.system(mogrify_cmd + "-fill white -pointsize 18 -draw " + \
+                stat =  os.system(mogrify_cmd + \
+                    "-fill white -pointsize 18 -draw " + \
 		    "\"text 11,86 '" + TEST_MSG1 + "'\" " + sstv_png)
-		stat =  os.system(mogrify_cmd + "-fill black -pointsize 18 -draw " + \
+	        stat =  os.system(mogrify_cmd + \
+                    "-fill black -pointsize 18 -draw " + \
 		    "\"text 10,105 '" + TEST_MSG2 + "'\" " + sstv_png)
-		stat =  os.system(mogrify_cmd + "-fill white -pointsize 18 -draw " + \
+		stat =  os.system(mogrify_cmd + \
+                    "-fill white -pointsize 18 -draw " + \
 		    "\"text 11,106 '" + TEST_MSG2 + "'\" " + sstv_png)
 		logging.info("Add test MSG: " + str(stat))
     except:
@@ -180,6 +190,10 @@ def gen_sstv_file():
 
 def gen_aprs_file():
     # get data from GPS and sensors
+    hour_date = datetime.datetime.now()
+    hour_date = "/%02d-%02d-%d/%02d:%02d:%02d" % (hour_date.day, \
+            hour_date.month, hour_date.year, hour_date.hour, \
+            hour_date.minute, hour_date.second)
     gps.update()
     logging.info("Got GPS: " + gps.line_gga)
     voltage = read_voltage()
@@ -193,27 +207,27 @@ def gen_aprs_file():
     temp_int = ds18b20_int.read()
     temp_ext = ds18b20_ext.read()
     logging.info("Got Temp")
-    hour_date = datetime.datetime.now()
-    hour_date = "/%02d-%02d-%d/%02d:%02d:%02d" % (hour_date.day, hour_date.month, \
-	hour_date.year, hour_date.hour, hour_date.minute, hour_date.second)
-    
-
     # generate APRS format coordinates
     try:
-	    coords = "%07.2f%s/%08.2f%s" % (float(gps.latitude), gps.ns, float(gps.longitude), gps.ew)
+	    coords = "%07.2f%s/%08.2f%s" % (float(gps.latitude), gps.ns, \
+                    float(gps.longitude), gps.ew)
     except:
-		logging.warning("GPS: " + gps.latitude + " " + gps.longitude)
+		logging.warning("GPS: " + gps.latitude + " " + \
+                        gps.longitude)
 		coords = "XXXX.XX/XXXXX.XX"
 
     # create APRS message file
-    aprs_msg = ID + "-11>WORLD,WIDE2-2:!" + coords + "O" + str(gps.heading) + "/" + \
-            str(gps.speed) + "/A=" + str(gps.altitude) + "/V=" + "%.2f" % voltage + \
-	    "/P=" + "%.1f" % (baro_pressure/100) + "/TI=" + "%.2f" % temp_int + \
-	    "/TO=" + "%.2f" % temp_ext + hour_date + "/GPS=" + \
-		"%09.6f%s,%010.6f%s" % (gps.decimal_latitude(), gps.ns , \
-		gps.decimal_longitude(), gps.ew)
+    aprs_msg = ID + "-11>WORLD,WIDE2-2:!" + coords + "O" + \
+            str(gps.heading) + \
+            "/" + str(gps.speed) + "/A=" + str(gps.altitude) + "/V=" + \
+            "%.2f" % voltage + "/P=" + "%.1f" % (baro_pressure/100) + \
+            "/TI=" + "%.2f" % temp_int + "/TO=" + "%.2f" % temp_ext + \
+            hour_date + "/GPS=" + \
+            "%09.6f%s,%010.6f%s" % (gps.decimal_latitude(), gps.ns , \
+	    gps.decimal_longitude(), gps.ew)
     if TEST_MSG:
-        aprs_msg = aprs_msg + "/" + TEST_MSG1 + " " + TEST_MSG2 + " Sats: " + str(gps.sats) + "\n"
+        aprs_msg = aprs_msg + "/" + TEST_MSG1 + " " + TEST_MSG2 + \
+                " Sats: " + str(gps.sats) + "\n"
     else:
 	aprs_msg = aprs_msg + "\n"
     
@@ -240,7 +254,9 @@ def play_sstv():
 if __name__ == "__main__":
 
 	# init logging
-	logging.basicConfig(filename=log_file, level=logging.INFO)
+	logging.basicConfig(filename=log_file, level=logging.INFO, \
+                format='%(asctime)s %(message)s', \
+                datefmt='%d/%m/%Y %I:%M:%S %p')
 
 	# be sure that the pictures drive is mounted
 	mount = os.system("udisks --mount /dev/sda1")	
