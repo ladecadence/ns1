@@ -35,7 +35,7 @@ SPI_CE0=8
 BATT_EN_PIN=25
 
 # GPS
-GPS_SERIAL = "/dev/ttyAMA0"
+GPS_SERIAL = "/dev/ttyUSB0"
 GPS_SPEED = 9600
 
 # delays
@@ -69,8 +69,8 @@ aprs_wav = directory + "aprs.wav"
 gen_pkt_cmd = directory + "direwolf/gen_packets"
 
 # snapsstv
-#pics_dir = directory + "pictures/"
-pics_dir = "/media/GSBC-PICS/"
+pics_dir = directory + "pictures/"
+#pics_dir = "/media/GSBC-PICS/"
 raspistill_cmd = "/usr/bin/raspistill -t 1 -ISO 100 -e png " 
 convert_cmd = "/usr/bin/convert "
 mogrify_cmd = "/usr/bin/mogrify "
@@ -197,16 +197,22 @@ def gen_aprs_file():
     gps.update()
     logging.info("Got GPS: " + gps.line_gga)
     voltage = read_voltage()
-    logging.info("Got Batt")
-    baro_pressure = baro.read_pressure()
-    logging.info("Got Baro")
-    baro_altitude = baro.read_altitude()
-    logging.info("Got Baro alt")
-    baro_temp = baro.read_temperature()
-    logging.info("Got Baro temp")
+    logging.info("Got Batt: " + str(voltage))
+    try:
+        baro_pressure = baro.read_pressure()
+        logging.info("Got Baro: " + str(baro_pressure))
+        baro_altitude = baro.read_altitude()
+        logging.info("Got Baro alt: " str(baro_altitude))
+        baro_temp = baro.read_temperature()
+        logging.info("Got Baro temp: " + str(baro_temp))
+    except:
+        logging.warn("Problem with barometer, using default values")
+        baro_pressure = 1013.2
+        baro_altitude = 0
+        baro_temp = 15
     temp_int = ds18b20_int.read()
     temp_ext = ds18b20_ext.read()
-    logging.info("Got Temp")
+    logging.info("Got Temp: Int:" + str(temp_int) + ", Ext: " + str(temp_ext))
     # generate APRS format coordinates
     try:
 	    coords = "%07.2f%s/%08.2f%s" % (float(gps.latitude), gps.ns, \
@@ -259,8 +265,8 @@ if __name__ == "__main__":
                 datefmt='%d/%m/%Y %I:%M:%S %p')
 
 	# be sure that the pictures drive is mounted
-	mount = os.system("udisks --mount /dev/sda1")	
-	logging.info("mounting pendrive: " + str(mount))
+	#mount = os.system("udisks --mount /dev/sda1")	
+	#logging.info("mounting pendrive: " + str(mount))
 
 	while 1:
 		# each minute send APRS packet
