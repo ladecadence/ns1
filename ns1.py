@@ -202,7 +202,7 @@ def gen_aprs_file():
         baro_pressure = baro.read_pressure()
         logging.info("Got Baro: " + str(baro_pressure))
         baro_altitude = baro.read_altitude()
-        logging.info("Got Baro alt: " str(baro_altitude))
+        logging.info("Got Baro alt: " + str(baro_altitude))
         baro_temp = baro.read_temperature()
         logging.info("Got Baro temp: " + str(baro_temp))
     except:
