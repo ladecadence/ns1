@@ -34,6 +34,9 @@ SPI_MOSI=10
 SPI_CE0=8
 BATT_EN_PIN=25
 
+# Field separator
+SEPARATOR = "/"
+
 # GPS
 GPS_SERIAL = "/dev/ttyUSB0"
 GPS_SPEED = 9600
@@ -191,8 +194,9 @@ def gen_sstv_file():
 def gen_aprs_file():
     # get data from GPS and sensors
     hour_date = datetime.datetime.now()
-    hour_date = "/%02d-%02d-%d/%02d:%02d:%02d" % (hour_date.day, \
-            hour_date.month, hour_date.year, hour_date.hour, \
+    hour_date = SEPARATOR + "%02d-%02d-%d" % (hour_date.day, \
+            hour_date.month, hour_date.year) + SEPARATOR + \
+            "%02d:%02d:%02d" % (hour_date.hour, \
             hour_date.minute, hour_date.second)
     gps.update()
     logging.info("Got GPS: " + gps.line_gga)
@@ -215,24 +219,25 @@ def gen_aprs_file():
     logging.info("Got Temp: Int:" + str(temp_int) + ", Ext: " + str(temp_ext))
     # generate APRS format coordinates
     try:
-	    coords = "%07.2f%s/%08.2f%s" % (float(gps.latitude), gps.ns, \
-                    float(gps.longitude), gps.ew)
+	    coords = "%07.2f%s" + SEPARATOR + "%08.2f%s" % (float(gps.latitude), \
+                    gps.ns, float(gps.longitude), gps.ew)
     except:
 		logging.warning("GPS: " + gps.latitude + " " + \
                         gps.longitude)
-		coords = "XXXX.XX/XXXXX.XX"
+		coords = "0000.00" + SEPARATOR + "00000.00"
 
     # create APRS message file
     aprs_msg = ID + "-11>WORLD,WIDE2-2:!" + coords + "O" + \
-            str(gps.heading) + \
-            "/" + str(gps.speed) + "/A=" + str(gps.altitude) + "/V=" + \
-            "%.2f" % voltage + "/P=" + "%.1f" % (baro_pressure/100) + \
-            "/TI=" + "%.2f" % temp_int + "/TO=" + "%.2f" % temp_ext + \
-            hour_date + "/GPS=" + \
+            str(gps.heading) + SEPARATOR + \
+            str(gps.speed) + SEPARATOR + "A=" + str(gps.altitude) + \
+            SEPARATOR + "V=" + "%.2f" % voltage + SEPARATOR + "P=" + \
+            "%.1f" % (baro_pressure/100) + SEPARATOR + \
+            "TI=" + "%.2f" % temp_int + SEPARATOR + "TO=" + \
+            "%.2f" % temp_ext + hour_date + SEPARATOR + "GPS=" + \
             "%09.6f%s,%010.6f%s" % (gps.decimal_latitude(), gps.ns , \
 	    gps.decimal_longitude(), gps.ew)
     if TEST_MSG:
-        aprs_msg = aprs_msg + "/" + TEST_MSG1 + " " + TEST_MSG2 + \
+        aprs_msg = aprs_msg + SEPARATOR + TEST_MSG1 + " " + TEST_MSG2 + \
                 " Sats: " + str(gps.sats) + "\n"
     else:
 	aprs_msg = aprs_msg + "\n"
