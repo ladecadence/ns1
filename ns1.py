@@ -240,7 +240,7 @@ def gen_aprs_file():
             "%09.6f%s,%010.6f%s" % (gps.decimal_latitude(), gps.ns , \
             gps.decimal_longitude(), gps.ew) + SEPARATOR + \
             "SATS=" + str(gps.sats) + SEPARATOR + "AR=" + \
-            ascension_rate
+            str(ascension_rate)
     if TEST_MSG:
         aprs_msg = aprs_msg + SEPARATOR + TEST_MSG1 + " " + TEST_MSG2 \
                 + "\n"
