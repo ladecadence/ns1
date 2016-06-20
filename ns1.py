@@ -35,7 +35,7 @@ SPI_CE0=8
 BATT_EN_PIN=25
 
 # Field separator
-SEPARATOR = "/"
+SEPARATOR = "|"
 
 # GPS
 GPS_SERIAL = "/dev/ttyUSB0"
