@@ -222,8 +222,9 @@ def gen_aprs_file():
     logging.info("Got Temp: Int:" + str(temp_int) + ", Ext: " + str(temp_ext))
     # generate APRS format coordinates
     try:
-        coords = "%07.2f%s" + SEPARATOR + "%08.2f%s" % (float(gps.latitude), \
-                gps.ns, float(gps.longitude), gps.ew)
+        coords = "%07.2f%s" % (float(gps.latitude), gps.ns)  \
+                + SEPARATOR + \
+                "%08.2f%s" % (float(gps.longitude), gps.ew)
     except:
         logging.warning("GPS: " + gps.latitude + " " + \
             gps.longitude)
