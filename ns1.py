@@ -112,6 +112,12 @@ baro = BMP085.BMP085(mode=BMP085.BMP085_HIGHRES)
 ds18b20_int = ds18b20.Ds18b20(TEMP_INT_ADDR)
 ds18b20_ext = ds18b20.Ds18b20(TEMP_EXT_ADDR)
 
+# ascension rate
+# aprs packet time
+last_ascension_rate_time = 0
+# last altitude
+last_altitude = 0
+
 ######################################################
 
 def ptt_on():
@@ -134,7 +140,33 @@ def read_voltage():
     return v
 
 def get_ascension_rate():
-    return 0
+    global last_altitude
+    global last_ascension_rate_time
+
+    # get current time
+    now = datetime.datetime.now()
+    # while we have default altitude (no GPS)
+    if last_altitude == 0:
+        try:
+            last_altitude = float(gps.altitude)
+            last_ascension_rate_time = now
+            return 0
+        except ValueError:
+            last_altitude = 0
+            last_ascension_rate_time = now
+            return 0
+
+    # else calculate ascension rate
+    try:
+        delta_time = now - last_ascension_rate_time
+        asc_rate = (float(gps.altitude) - last_altitude) / delta_time.seconds
+        logging.info("DEBUG: ASR -> Tdelta: " + str(delta_time.seconds) + " alt-dif : " + str(float(gps.altitude) - last_altitude))
+        last_ascension_rate_time = now
+        last_altitude = float(gps.altitude)
+        return asc_rate
+    except ValueError:
+        last_ascension_rate_time = now
+        return 0
 
 def gen_sstv_file():
     # take picture
@@ -146,30 +178,30 @@ def gen_sstv_file():
     try:
         pic_name = pics_dir + "sstvpic_" + hour_date + ".png"
         stat =  os.system(raspistill_cmd + "-o " + pic_name)
-        logging.info("taking picture: " + str(stat))
+        logging.info("DEBUG: taking picture: " + str(stat))
 
         # generate 320x256 picture
         stat =  os.system(convert_cmd + pic_name + \
                 " -resize 320x256 " + sstv_png)
-        logging.info("resize picture: " + str(stat))
+        logging.info("DEBUG: resize picture: " + str(stat))
 
         # add ID and date to the picture
         stat = os.system(mogrify_cmd + \
                 "-fill white -pointsize 24 -draw " + \
                 "\"text 10,40 '" + ID + SUBID + "'\" " + sstv_png)
-        logging.info("Add ID 1: " + str(stat))
+        logging.info("DEBUG: Add ID 1: " + str(stat))
         stat =  os.system(mogrify_cmd + \
                 "-pointsize 24 -draw " + \
                 "\"text 12,42 '" + ID + SUBID + "'\" " + sstv_png)
-        logging.info("Add ID 2: " + str(stat))
+        logging.info("DEBUG: Add ID 2: " + str(stat))
         stat =  os.system(mogrify_cmd + \
                 "-pointsize 14 -draw " + \
                 "\"text 10,60 '" + hour_date + "'\" " + sstv_png)
-        logging.info("Add Date 1: " + str(stat))
+        logging.info("DEBUG: Add Date 1: " + str(stat))
         stat =  os.system(mogrify_cmd + \
                 "-fill white -pointsize 14 -draw " + \
                 "\"text 11,61 '" + hour_date + "'\" " + sstv_png)
-        logging.info("Add Date 2: " + str(stat))
+        logging.info("DEBUG: Add Date 2: " + str(stat))
 
         if TEST_MSG:
             stat =  os.system(mogrify_cmd + \
@@ -184,14 +216,14 @@ def gen_sstv_file():
             stat =  os.system(mogrify_cmd + \
                     "-fill white -pointsize 18 -draw " + \
                     "\"text 11,106 '" + TEST_MSG2 + "'\" " + sstv_png)
-            logging.info("Add test MSG: " + str(stat))
+            logging.info("DEBUG: Add test MSG: " + str(stat))
     except:
-        logging.info("Problem taking picture")
+        logging.info("ERROR: Problem taking picture")
 
 
     # generate sound file
     stat =  os.system(pisstv_cmd + sstv_png)
-    logging.info("Generate SSTV Audio: " + str(stat))
+    logging.info("DEBUG: Generate SSTV Audio: " + str(stat))
 
 def gen_aprs_file():
     # get data from GPS and sensors
@@ -201,34 +233,40 @@ def gen_aprs_file():
             "%02d:%02d:%02d" % (hour_date.hour, \
             hour_date.minute, hour_date.second)
     gps.update()
-    logging.info("Got GPS: " + gps.line_gga)
+    logging.info("DATA: NMEA: " + gps.line_gga)
     voltage = read_voltage()
-    logging.info("Got Batt: " + str(voltage))
+    logging.info("DATA: BATT: " + str(voltage))
     ascension_rate = get_ascension_rate()
     try:
         baro_pressure = baro.read_pressure()
-        logging.info("Got Baro: " + str(baro_pressure))
+        logging.info("DATA: BARO: " + str(baro_pressure))
         baro_altitude = baro.read_altitude()
-        logging.info("Got Baro alt: " + str(baro_altitude))
+        logging.info("DATA: BALT: " + str(baro_altitude))
         baro_temp = baro.read_temperature()
-        logging.info("Got Baro temp: " + str(baro_temp))
+        logging.info("DATA: BTEMP: " + str(baro_temp))
     except:
-        logging.warn("Problem with barometer, using default values")
+        logging.warn("ERROR: Problem with barometer, using default values")
         baro_pressure = 1013.2
         baro_altitude = 0
         baro_temp = 15
     temp_int = ds18b20_int.read()
     temp_ext = ds18b20_ext.read()
-    logging.info("Got Temp: Int:" + str(temp_int) + ", Ext: " + str(temp_ext))
+    logging.info("DATA: Tin: " + str(temp_int))
+    logging.info("DATA: Tout: " + str(temp_ext))
+
     # generate APRS format coordinates
     try:
         coords = "%07.2f%s" % (float(gps.latitude), gps.ns)  \
                 + SEPARATOR + \
                 "%08.2f%s" % (float(gps.longitude), gps.ew)
     except:
-        logging.warning("GPS: " + gps.latitude + " " + \
+        logging.warning("ERROR: GPS: " + gps.latitude + " " + \
             gps.longitude)
         coords = "0000.00N" + SEPARATOR + "00000.00W"
+
+    logging.info("DATA: LAT: " + gps.latitude)
+    logging.info("DATA: LON: " + gps.longitude)
+    logging.info("DATA: ALT: " + str(gps.altitude))
 
     # create APRS message file
     aprs_msg = ID + "-11>WORLD,WIDE2-2:!" + coords + "O" + \
@@ -241,43 +279,48 @@ def gen_aprs_file():
             "%09.6f%s,%010.6f%s" % (gps.decimal_latitude(), gps.ns , \
             gps.decimal_longitude(), gps.ew) + SEPARATOR + \
             "SATS=" + str(gps.sats) + SEPARATOR + "AR=" + \
-            str(ascension_rate)
+            "%.2f" % ascension_rate
     if TEST_MSG:
         aprs_msg = aprs_msg + SEPARATOR + TEST_MSG1 + " " + TEST_MSG2 \
                 + "\n"
     else:
         aprs_msg = aprs_msg + "\n"
 
-    print aprs_msg
+    print (aprs_msg)
     f = open(aprs_data, 'w')
     f.write(aprs_msg)
     f.close()
 
     # create APRS wav file
     stat =  os.system(gen_pkt_cmd + " -o " + aprs_wav + " " + aprs_data)
-    logging.info("Created APRS wav: " + str(stat))
+    logging.info("DEBUG: Created APRS wav: " + str(stat))
 
 # play commands
 def play_aprs():
     stat = os.system(play_cmd + aprs_wav)
-    logging.info("Played APRS wav: " + str(stat))
+    logging.info("DEBUG: Played APRS wav: " + str(stat))
+    logging.info(" ")
 
 def play_sstv():
     stat = os.system(play_cmd + sstv_wav)
-    logging.info("Played SSTV wav: " + str(stat))
+    logging.info("DEBUG: Played SSTV wav: " + str(stat))
+    logging.info(" ")
 
 ######################### MAIN ##############################
 
 if __name__ == "__main__":
 
-        # init logging
+    # init logging
     logging.basicConfig(filename=log_file, level=logging.INFO, \
             format='%(asctime)s %(message)s', \
             datefmt='%d/%m/%Y %I:%M:%S %p')
 
     # be sure that the pictures drive is mounted
     # mount = os.system("udisks --mount /dev/sda1")
-    # logging.info("mounting pendrive: " + str(mount))
+    # logging.info("DEBUG: Mounting pendrive: " + str(mount))
+
+    # initial time
+    last_ascension_rate_time = datetime.datetime.now()
 
     while 1:
         # each minute send APRS packet
