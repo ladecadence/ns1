@@ -24,13 +24,18 @@ class GsbcGPS:
     def update(self):
         # get GGA line from serial port
         self.line_gga = ""
-        while self.line_gga[3:6] != "GGA":
+        count = 0
+        while self.line_gga[3:6] != "GGA" and count < 10:
             self.line_gga = self.port.readline()
+            count = count + 1
 
         # and get RMC line from serial port
         self.line_rmc = ""
-        while self.line_rmc[3:6] != "RMC":
+        count = 0
+        while self.line_rmc[3:6] != "RMC" and count < 10:
             self.line_rmc = self.port.readline()
+            count = count + 1
+
 
         # now parse data
         gga_data = self.line_gga.split(",")
