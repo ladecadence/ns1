@@ -1,49 +1,44 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 import sys
 import os
-import pyaudio
-import wave
 import time
 import datetime
 import RPi.GPIO as GPIO
-import Adafruit_BMP.BMP085 as BMP085
-import logging
 
-import gsbcgps
+import ashabgps
 import mcp3008
 import ds18b20
+import log
 
 ############ CONFIGURATION ############
 
 # ID
 ID="EA1IDZ"
-SUBID="/NS1"
+SUBID="/NSX"
 
 # Test
-TEST_MSG1="ASHAB High Altitude Balloon NS2"
+TEST_MSG1="ASHAB High Altitude Balloon NSX"
 TEST_MSG2="info@ashab.space "
 TEST_MSG=True
 
 # pins
-PTT_PIN=22      # PIN 15
-VFO_PIN=27      # PIN 13
 SPI_CLK=11
 SPI_MISO=9
 SPI_MOSI=10
 SPI_CE0=8
-BATT_EN_PIN=25
+BATT_EN_PIN=24
 
 # Field separator
 SEPARATOR = "/"
 
 # GPS
-GPS_SERIAL = "/dev/ttyUSB0"
+GPS_SERIAL = "/dev/ttyAMA0"
 GPS_SPEED = 9600
 
 # delays
-APRS_REPEAT=20
-APRS_DELAY=26
+TELEM_REPEAT=20
+TELEM_DELAY=30
 
 # voltage ADC channel
 VOLT_ADC = 0
@@ -52,24 +47,16 @@ VOLT_DIVIDER = 3.2
 VOLT_MULTIPLIER = 1
 
 # temperature sensors
-TEMP_INT_ADDR = "28-0000079ee65f"
+TEMP_INT_ADDR = "28-031682a91bff"
 TEMP_EXT_ADDR = "28-0000079e9f12"
 
 # FILES AND PROGRAMS
 
 # directory END SLASH!!!
-directory = "/home/pi/gsbc/"
+directory = "/home/pi/ASHAB/"
 
-# sstv wav file
+# sstv file
 sstv_png = directory + "sstv.png"
-sstv_wav = directory + "sstv.png.wav"
-
-# aprs files
-aprs_data = directory + "aprs.dat"
-aprs_wav = directory + "aprs.wav"
-
-# direwolf gen_packet command
-gen_pkt_cmd = directory + "direwolf/gen_packets"
 
 # snapsstv
 pics_dir = directory + "pictures/"
@@ -79,34 +66,25 @@ convert_cmd = "/usr/bin/convert "
 mogrify_cmd = "/usr/bin/mogrify "
 pisstv_cmd = "pisstvpp/pisstvpp -pr36 -r44100 "
 
-# playback
-play_cmd = "/usr/bin/aplay "
-
-######################################################
-
 # logging
 log_file = directory + "log.txt"
 
+# log
+debug_log = log.Log(log_file)
+
+######################################################
+
 # GPS
-gps = gsbcgps.GsbcGPS(GPS_SERIAL, GPS_SPEED)
+gps = ashabgps.AshabGPS(GPS_SERIAL, GPS_SPEED)
 
 # Set GPIOs
 GPIO.setmode(GPIO.BCM)
-
-GPIO.setup(PTT_PIN, GPIO.OUT)
-GPIO.output(PTT_PIN, False)
-
-GPIO.setup(VFO_PIN, GPIO.OUT)
-GPIO.output(VFO_PIN, False)
 
 GPIO.setup(BATT_EN_PIN, GPIO.OUT)
 GPIO.output(BATT_EN_PIN, False)
 
 # ADC
 adc = mcp3008.Mcp3008(SPI_CLK, SPI_MOSI, SPI_MISO, SPI_CE0)
-
-# Barometer
-baro = BMP085.BMP085(mode=BMP085.BMP085_HIGHRES)
 
 # temperature sensors
 ds18b20_int = ds18b20.Ds18b20(TEMP_INT_ADDR)
@@ -119,18 +97,6 @@ last_ascension_rate_time = 0
 last_altitude = 0
 
 ######################################################
-
-def ptt_on():
-    GPIO.output(PTT_PIN, True)
-    time.sleep(1)
-def ptt_off():
-    GPIO.output(PTT_PIN, False)
-    time.sleep(1)
-
-def change_vfo():
-    GPIO.output(VFO_PIN, True)
-    time.sleep(0.1)
-    GPIO.output(VFO_PIN, False)
 
 def read_voltage():
     # adc value
@@ -160,7 +126,9 @@ def get_ascension_rate():
     try:
         delta_time = now - last_ascension_rate_time
         asc_rate = (float(gps.altitude) - last_altitude) / delta_time.seconds
-        logging.info("DEBUG: ASR -> Tdelta: " + str(delta_time.seconds) + " alt-dif : " + str(float(gps.altitude) - last_altitude))
+        debug_log.log(log.LogType.INFO, \
+		"ASR -> Tdelta: " + str(delta_time.seconds) + 
+		" alt-dif : " + str(float(gps.altitude) - last_altitude))
         last_ascension_rate_time = now
         last_altitude = float(gps.altitude)
         return asc_rate
@@ -178,30 +146,30 @@ def gen_sstv_file():
     try:
         pic_name = pics_dir + "sstvpic_" + hour_date + ".png"
         stat =  os.system(raspistill_cmd + "-o " + pic_name)
-        logging.info("DEBUG: taking picture: " + str(stat))
+        debug_log.log(log.LogType.INFO, "taking picture: " + str(stat))
 
         # generate 320x256 picture
         stat =  os.system(convert_cmd + pic_name + \
                 " -resize 320x256 " + sstv_png)
-        logging.info("DEBUG: resize picture: " + str(stat))
+        debug_log.log(log.LogType.INFO, "resize picture: " + str(stat))
 
         # add ID and date to the picture
         stat = os.system(mogrify_cmd + \
                 "-fill white -pointsize 24 -draw " + \
                 "\"text 10,40 '" + ID + SUBID + "'\" " + sstv_png)
-        logging.info("DEBUG: Add ID 1: " + str(stat))
+        debug_log.log(log.LogType.INFO, "Add ID 1: " + str(stat))
         stat =  os.system(mogrify_cmd + \
                 "-pointsize 24 -draw " + \
                 "\"text 12,42 '" + ID + SUBID + "'\" " + sstv_png)
-        logging.info("DEBUG: Add ID 2: " + str(stat))
+        debug_log.log(log.LogType.INFO, "Add ID 2: " + str(stat))
         stat =  os.system(mogrify_cmd + \
                 "-pointsize 14 -draw " + \
                 "\"text 10,60 '" + hour_date + "'\" " + sstv_png)
-        logging.info("DEBUG: Add Date 1: " + str(stat))
+        debug_log.log(log.LogType.INFO, "Add Date 1: " + str(stat))
         stat =  os.system(mogrify_cmd + \
                 "-fill white -pointsize 14 -draw " + \
                 "\"text 11,61 '" + hour_date + "'\" " + sstv_png)
-        logging.info("DEBUG: Add Date 2: " + str(stat))
+        debug_log.log(log.LogType.INFO, "Add Date 2: " + str(stat))
 
         if TEST_MSG:
             stat =  os.system(mogrify_cmd + \
@@ -216,16 +184,12 @@ def gen_sstv_file():
             stat =  os.system(mogrify_cmd + \
                     "-fill white -pointsize 18 -draw " + \
                     "\"text 11,106 '" + TEST_MSG2 + "'\" " + sstv_png)
-            logging.info("DEBUG: Add test MSG: " + str(stat))
+            debug_log.log(log.LogType.INFO, "Add test MSG: " + str(stat))
     except:
-        logging.info("ERROR: Problem taking picture")
+        debug_log.log(log.LogType.ERR, "Problem taking picture")
 
 
-    # generate sound file
-    stat =  os.system(pisstv_cmd + sstv_png)
-    logging.info("DEBUG: Generate SSTV Audio: " + str(stat))
-
-def gen_aprs_file():
+def gen_telemetry():
     # get data from GPS and sensors
     hour_date = datetime.datetime.now()
     hour_date = SEPARATOR + "%02d-%02d-%d" % (hour_date.day, \
@@ -233,26 +197,26 @@ def gen_aprs_file():
             "%02d:%02d:%02d" % (hour_date.hour, \
             hour_date.minute, hour_date.second)
     gps.update()
-    logging.info("DATA: NMEA: " + gps.line_gga)
+    debug_log.log(log.LogType.DATA, "NMEA: " + gps.line_gga)
     voltage = read_voltage()
-    logging.info("DATA: BATT: " + str(voltage))
+    debug_log.log(log.LogType.DATA, "BATT: " + str(voltage))
     ascension_rate = get_ascension_rate()
     try:
         baro_pressure = baro.read_pressure()
-        logging.info("DATA: BARO: " + str(baro_pressure))
+        debug_log.log(log.LogType.DATA, "BARO: " + str(baro_pressure))
         baro_altitude = baro.read_altitude()
-        logging.info("DATA: BALT: " + str(baro_altitude))
+        debug_log.log("log.LogType.DATA, BALT: " + str(baro_altitude))
         baro_temp = baro.read_temperature()
-        logging.info("DATA: BTEMP: " + str(baro_temp))
+        debug_log.log(log.LogType.DATA, "BTEMP: " + str(baro_temp))
     except:
-        logging.warn("ERROR: Problem with barometer, using default values")
+        debug_log.log(log.LogType.ERR, "Problem with barometer, using default values")
         baro_pressure = 1013.2
         baro_altitude = 0
         baro_temp = 15
     temp_int = ds18b20_int.read()
     temp_ext = ds18b20_ext.read()
-    logging.info("DATA: Tin: " + str(temp_int))
-    logging.info("DATA: Tout: " + str(temp_ext))
+    debug_log.log(log.LogType.DATA, "Tin: " + str(temp_int))
+    debug_log.log(log.LogType.DATA, "Tout: " + str(temp_ext))
 
     # generate APRS format coordinates
     try:
@@ -260,13 +224,13 @@ def gen_aprs_file():
                 + SEPARATOR + \
                 "%08.2f%s" % (float(gps.longitude), gps.ew)
     except:
-        logging.warning("ERROR: GPS: " + gps.latitude + " " + \
+        debug_log.log(log.LogType.ERR, "GPS: " + gps.latitude + " " + \
             gps.longitude)
         coords = "0000.00N" + SEPARATOR + "00000.00W"
 
-    logging.info("DATA: LAT: " + gps.latitude)
-    logging.info("DATA: LON: " + gps.longitude)
-    logging.info("DATA: ALT: " + str(gps.altitude))
+    debug_log.log(log.LogType.DATA, "LAT: " + gps.latitude)
+    debug_log.log(log.LogType.DATA, "LON: " + gps.longitude)
+    debug_log.log(log.LogType.DATA, "ALT: " + str(gps.altitude))
 
     # create APRS message file
     aprs_msg = ID + "-11>WORLD,WIDE2-2:!" + coords + "O" + \
@@ -286,57 +250,31 @@ def gen_aprs_file():
     else:
         aprs_msg = aprs_msg + "\n"
 
-    print (aprs_msg)
-    f = open(aprs_data, 'w')
-    f.write(aprs_msg)
-    f.close()
-
-    # create APRS wav file
-    stat =  os.system(gen_pkt_cmd + " -o " + aprs_wav + " " + aprs_data)
-    logging.info("DEBUG: Created APRS wav: " + str(stat))
-
-# play commands
-def play_aprs():
-    stat = os.system(play_cmd + aprs_wav)
-    logging.info("DEBUG: Played APRS wav: " + str(stat))
-    logging.info(" ")
-
-def play_sstv():
-    stat = os.system(play_cmd + sstv_wav)
-    logging.info("DEBUG: Played SSTV wav: " + str(stat))
-    logging.info(" ")
+    return aprs_msg
 
 ######################### MAIN ##############################
 
 if __name__ == "__main__":
 
     # init logging
-    logging.basicConfig(filename=log_file, level=logging.INFO, \
-            format='%(asctime)s %(message)s', \
-            datefmt='%d/%m/%Y %I:%M:%S %p')
+    debug_log.reset()
 
     # be sure that the pictures drive is mounted
     # mount = os.system("udisks --mount /dev/sda1")
-    # logging.info("DEBUG: Mounting pendrive: " + str(mount))
+    # debug_log.log(log.LogType.INFO, "Mounting pendrive: " + str(mount))
 
     # initial time
     last_ascension_rate_time = datetime.datetime.now()
 
+    debug_log.log(log.LogType.INFO, "Starting...")
+
     while 1:
         # each minute send APRS packet
-        for i in range(APRS_REPEAT):
-            gen_aprs_file()
-            ptt_on()
-            play_aprs()
-            ptt_off()
+        for i in range(TELEM_REPEAT):
+            gen_telemetry()
             # wait X secs
-            time.sleep(APRS_DELAY)
+            time.sleep(TELEM_DELAY)
 
         # send sstv image
-        #change_vfo()
         gen_sstv_file()
-        ptt_on()
-        play_sstv()
-        ptt_off()
-        #change_vfo()
         time.sleep(5)

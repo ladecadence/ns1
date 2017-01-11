@@ -6,7 +6,7 @@ import time
 SERIAL_PORT = "/dev/ttyAMA0"
 SERIAL_SPEED = "9600"
 
-class GsbcGPS:
+class AshabGPS:
     def __init__(self, serial_port, serial_speed):
         self.latitude = "4331.50"
         self.ns="N"
@@ -101,15 +101,14 @@ if __name__ == "__main__":
 
     while 1:
         gps.update()
-        #print gps.line_gga
         if gps.good_fix():
-            print "sats: " + str(gps.sats),
-            print ", lat: " + str(gps.latitude),
-            print "" + str(gps.ns),
-            print ", lon: " + str(gps.longitude),
-            print "" + str(gps.ew),
-            print ", alt: " + str(gps.altitude),
-            print ", speed: " + str(gps.speed),
-            print ", hdg: " + str(gps.heading)
-            print gps.line_gga
+            print( "sats: " + str(gps.sats))
+            print( ", lat: " + str(gps.latitude))
+            print( "" + str(gps.ns))
+            print( ", lon: " + str(gps.longitude))
+            print( "" + str(gps.ew))
+            print( ", alt: " + str(gps.altitude))
+            print( ", speed: " + str(gps.speed))
+            print( ", hdg: " + str(gps.heading))
+            print(gps.line_gga)
         time.sleep(1)

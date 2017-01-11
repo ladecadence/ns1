@@ -57,7 +57,7 @@ if __name__ == "__main__":
 
 	while 1:
 		trim_pot = mcp.read(potentiometer_adc)
-		print "pot: ", trim_pot
+		print("pot: ", trim_pot)
 		time.sleep(0.5)
 
 
