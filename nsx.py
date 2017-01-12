@@ -10,6 +10,7 @@ import ashabgps
 import mcp3008
 import ds18b20
 import log
+import pyRF95.rf95 as rf95
 
 ############ CONFIGURATION ############
 
@@ -36,9 +37,16 @@ SEPARATOR = "/"
 GPS_SERIAL = "/dev/ttyAMA0"
 GPS_SPEED = 9600
 
+# Radio
+RF95_CS = 0
+RF95_INT = 25
+RF95_FREQ = 868.5
+RF95_PWR = 5
+rf95 = rf95.RF95(RF95_CS, RF95_INT)
+
 # delays
-TELEM_REPEAT=20
-TELEM_DELAY=30
+TELEM_REPEAT=5
+TELEM_DELAY=10
 
 # voltage ADC channel
 VOLT_ADC = 0
@@ -84,7 +92,7 @@ GPIO.setup(BATT_EN_PIN, GPIO.OUT)
 GPIO.output(BATT_EN_PIN, False)
 
 # ADC
-adc = mcp3008.Mcp3008(SPI_CLK, SPI_MOSI, SPI_MISO, SPI_CE0)
+#adc = mcp3008.Mcp3008(SPI_CLK, SPI_MOSI, SPI_MISO, SPI_CE0)
 
 # temperature sensors
 ds18b20_int = ds18b20.Ds18b20(TEMP_INT_ADDR)
@@ -100,7 +108,8 @@ last_altitude = 0
 
 def read_voltage():
     # adc value
-    adc_value=adc.read(VOLT_ADC)
+    #adc_value=adc.read(VOLT_ADC)
+    adc_value = 0.0
     # voltage divisor at 3.3V, 10bit ADC so
     v = VOLT_MULTIPLIER * VOLT_DIVIDER * (adc_value*3.3/1023.0)
     return v
@@ -127,8 +136,8 @@ def get_ascension_rate():
         delta_time = now - last_ascension_rate_time
         asc_rate = (float(gps.altitude) - last_altitude) / delta_time.seconds
         debug_log.log(log.LogType.INFO, \
-		"ASR -> Tdelta: " + str(delta_time.seconds) + 
-		" alt-dif : " + str(float(gps.altitude) - last_altitude))
+        "ASR -> Tdelta: " + str(delta_time.seconds) + 
+        " alt-dif : " + str(float(gps.altitude) - last_altitude))
         last_ascension_rate_time = now
         last_altitude = float(gps.altitude)
         return asc_rate
@@ -136,7 +145,7 @@ def get_ascension_rate():
         last_ascension_rate_time = now
         return 0
 
-def gen_sstv_file():
+def gen_ssdv_file():
     # take picture
     hour_date = datetime.datetime.now()
     hour_date = "%02d-%02d-%d_%02d_%02d" % (hour_date.day, \
@@ -196,7 +205,7 @@ def gen_telemetry():
             hour_date.month, hour_date.year) + SEPARATOR + \
             "%02d:%02d:%02d" % (hour_date.hour, \
             hour_date.minute, hour_date.second)
-    gps.update()
+    #gps.update()
     debug_log.log(log.LogType.DATA, "NMEA: " + gps.line_gga)
     voltage = read_voltage()
     debug_log.log(log.LogType.DATA, "BATT: " + str(voltage))
@@ -233,7 +242,8 @@ def gen_telemetry():
     debug_log.log(log.LogType.DATA, "ALT: " + str(gps.altitude))
 
     # create APRS message file
-    aprs_msg = ID + "-11>WORLD,WIDE2-2:!" + coords + "O" + \
+    #aprs_msg = ID + "-11>WORLD,WIDE2-2:!" + coords + "O" + \
+    aprs_msg = "$$" + ID + "!" + coords + "O" + \
             str(gps.heading) + SEPARATOR + \
             str(gps.speed) + SEPARATOR + "A=" + str(gps.altitude) + \
             SEPARATOR + "V=" + "%.2f" % voltage + SEPARATOR + "P=" + \
@@ -252,6 +262,9 @@ def gen_telemetry():
 
     return aprs_msg
 
+def cleanup():
+    GPIO.cleanup()
+
 ######################### MAIN ##############################
 
 if __name__ == "__main__":
@@ -268,13 +281,29 @@ if __name__ == "__main__":
 
     debug_log.log(log.LogType.INFO, "Starting...")
 
+    # init radio
+    if not rf95.init():
+        debug_log.log(log.LogType.ERR, "RF95 not found")
+        cleanup()
+        quit(1)
+    else:
+        debug_log.log(log.LogType.INFO, "RF95 LoRa mode ok")
+
+    # set frequency and power
+    rf95.set_frequency(RF95_FREQ)
+    rf95.set_tx_power(RF95_PWR)
+
     while 1:
-        # each minute send APRS packet
+        # send telemetry packet
         for i in range(TELEM_REPEAT):
-            gen_telemetry()
+            telem_str = gen_telemetry()
+            rf95.send(rf95.str_to_data(telem_str))
+            rf95.wait_packet_sent()
+            debug_log.log(log.LogType.INFO, "LoRa Telemetry packet sent")
+            debug_log.log(log.LogType.INFO, telem_str)
             # wait X secs
             time.sleep(TELEM_DELAY)
 
-        # send sstv image
-        gen_sstv_file()
+        # send ssdv image
+        gen_ssdv_file()
         time.sleep(5)
