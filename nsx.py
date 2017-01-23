@@ -63,16 +63,21 @@ TEMP_EXT_ADDR = "28-0000079e9f12"
 # directory END SLASH!!!
 directory = "/home/pi/ASHAB/"
 
+# SSDV
+SSDV_SIZE = "640x480"
+ssdv_image_num = 0
+
 # sstv file
-sstv_png = directory + "sstv.png"
+sstv_png = directory + "sstv.jpg"
 
 # snapsstv
 pics_dir = directory + "pictures/"
 # pics_dir = "/media/GSBC-PICS/"
-raspistill_cmd = "/usr/bin/raspistill -t 1 -ISO 100 -e png "
+raspistill_cmd = "/usr/bin/raspistill -t 1000 -st -e jpg "
 convert_cmd = "/usr/bin/convert "
 mogrify_cmd = "/usr/bin/mogrify "
-pisstv_cmd = "pisstvpp/pisstvpp -pr36 -r44100 "
+#pisstv_cmd = "pisstvpp/pisstvpp -pr36 -r44100 "
+ssdv_cmd = "/home/pi/ASHAB/ssdv/ssdv -e -c " + ID + " -i "
 
 # logging
 log_file = directory + "log.txt"
@@ -153,13 +158,13 @@ def gen_ssdv_file():
             hour_date.minute)
 
     try:
-        pic_name = pics_dir + "sstvpic_" + hour_date + ".png"
+        pic_name = pics_dir + "sstvpic_" + hour_date + ".jpg"
         stat =  os.system(raspistill_cmd + "-o " + pic_name)
         debug_log.log(log.LogType.INFO, "taking picture: " + str(stat))
 
-        # generate 320x256 picture
+        # generate resized picture
         stat =  os.system(convert_cmd + pic_name + \
-                " -resize 320x256 " + sstv_png)
+                " -resize " + SSDV_SIZE +" " + sstv_png)
         debug_log.log(log.LogType.INFO, "resize picture: " + str(stat))
 
         # add ID and date to the picture
@@ -194,9 +199,49 @@ def gen_ssdv_file():
                     "-fill white -pointsize 18 -draw " + \
                     "\"text 11,106 '" + TEST_MSG2 + "'\" " + sstv_png)
             debug_log.log(log.LogType.INFO, "Add test MSG: " + str(stat))
-    except:
-        debug_log.log(log.LogType.ERR, "Problem taking picture")
+        
+        # SSDV
+        print ( ssdv_cmd + \
+            str(ssdv_image_num) + " " + \
+            sstv_png + " " + sstv_png + ".bin")
+        stat = os.system(ssdv_cmd + \
+                str(ssdv_image_num) + " " + \
+                sstv_png + " " + sstv_png + ".bin")
+        debug_log.log(log.LogType.INFO, "Generated SSDV binary file: " + str(stat))
 
+
+    except Exception as e:
+        debug_log.log(log.LogType.ERR, "Problem taking picture: " + str(e))
+
+def send_ssdv_image():
+    global ssdv_image_num
+    ssdv_filename = sstv_png + ".bin"
+    try:
+        ssdv_file = open(ssdv_filename, "rb")
+    except IOError as e:
+        debug_log.log(log.LogType.ERR, "Problem opening SSDV picture: " + str(e))
+        return
+
+    if os.path.getsize(ssdv_filename)%256 != 0:
+        debug_log.log(log.LogType.ERR, "File does not look like a SSDV image")
+        return
+
+    # ok, get number of packets to send
+    ssdv_packets = os.path.getsize(ssdv_filename)//256
+
+    # Send ssdv packets
+    # We are ignoring the first sync byte of each packet
+    # as the rf95 packet payload size is just 255 bytes.
+    # We need to take this into account on the receive side.
+    for i in range(ssdv_packets):
+        ssdv_file.seek((i*256)+1, 0)
+        rf95.send(rf95.bytes_to_data(ssdv_file.read(255)))
+        print("Sent packet" + str(i))
+        time.sleep(0.5)                 # processing time
+    # Done
+    rf95.set_mode_idle()
+    ssdv_file.close()
+    ssdv_image_num = ssdv_image_num + 1
 
 def gen_telemetry():
     # get data from GPS and sensors
@@ -306,4 +351,5 @@ if __name__ == "__main__":
 
         # send ssdv image
         gen_ssdv_file()
+        send_ssdv_image()
         time.sleep(5)
