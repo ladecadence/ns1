@@ -1,18 +1,18 @@
 import smbus
 import time
 
-# I2C commands of chip
-MS5xxx_CMD_RESET    = 0x1E    # perform reset
-MS5xxx_CMD_ADC_READ = 0x00    # initiate read sequence
-MS5xxx_CMD_ADC_CONV = 0x40    # start conversion
-MS5xxx_CMD_ADC_D1   = 0x00    # read ADC 1
-MS5xxx_CMD_ADC_D2   = 0x10    # read ADC 2
-MS5xxx_CMD_ADC_256  = 0x00    # set ADC oversampling ratio to 256
-MS5xxx_CMD_ADC_512  = 0x02    # set ADC oversampling ratio to 512
-MS5xxx_CMD_ADC_1024 = 0x04    # set ADC oversampling ratio to 1024
-MS5xxx_CMD_ADC_2048 = 0x06    # set ADC oversampling ratio to 2048
-MS5xxx_CMD_ADC_4096 = 0x08    # set ADC oversampling ratio to 4096
-MS5xxx_CMD_PROM_RD  = 0xA0    # initiate readout of PROM registers
+# MS5607 I2C commands
+MS5607_CMD_RESET    = 0x1E    # reset
+MS5607_CMD_ADC_READ = 0x00    # read sequence
+MS5607_CMD_ADC_CONV = 0x40    # start conversion
+MS5607_CMD_ADC_D1   = 0x00    # read ADC 1
+MS5607_CMD_ADC_D2   = 0x10    # read ADC 2
+MS5607_CMD_ADC_256  = 0x00    # ADC oversampling ratio to 256
+MS5607_CMD_ADC_512  = 0x02    # ADC oversampling ratio to 512
+MS5607_CMD_ADC_1024 = 0x04    # ADC oversampling ratio to 1024
+MS5607_CMD_ADC_2048 = 0x06    # ADC oversampling ratio to 2048
+MS5607_CMD_ADC_4096 = 0x08    # ADC oversampling ratio to 4096
+MS5607_CMD_PROM_RD  = 0xA0    # readout of PROM registers
 
 
 class MS5607:
@@ -21,20 +21,15 @@ class MS5607:
         self.addr = addr
         self.C = [0,0,0,0,0,0,0]
 
-    def connect(self):
-        bus = smbus.SMBus(self.bus)
-
-        bus.close()
-
     def read_prom(self):
         bus = smbus.SMBus(self.bus)
-        bus.write_byte_data(self.addr, 0, MS5xxx_CMD_RESET)
+        bus.write_byte_data(self.addr, 0, MS5607_CMD_RESET)
 
         time.sleep(0.03)
         
         for i in range(1,7):
             self.C[i] = 0x0000
-            (data1, data0) = bus.read_i2c_block_data(self.addr, MS5xxx_CMD_PROM_RD+(2*i), 2)
+            (data1, data0) = bus.read_i2c_block_data(self.addr, MS5607_CMD_PROM_RD+(2*i), 2)
             self.C[i] = data1 << 8
             self.C[i] = self.C[i] + data0
 
@@ -44,22 +39,20 @@ class MS5607:
         value = 0
 
         bus = smbus.SMBus(self.bus)
-        bus.write_byte_data(self.addr, MS5xxx_CMD_ADC_CONV+cmd, 0)
+        bus.write_byte_data(self.addr, MS5607_CMD_ADC_CONV+cmd, 0)
 
-        if (cmd & 0x0f) == MS5xxx_CMD_ADC_256 :
+        if (cmd & 0x0f) == MS5607_CMD_ADC_256 :
             time.sleep(0.0009)
-        elif (cmd & 0x0f) == MS5xxx_CMD_ADC_512:
+        elif (cmd & 0x0f) == MS5607_CMD_ADC_512:
             time.sleep(0.003)
-        elif (cmd & 0x0f) == MS5xxx_CMD_ADC_1024:
+        elif (cmd & 0x0f) == MS5607_CMD_ADC_1024:
             time.sleep(0.004)
-        elif (cmd & 0x0f) == MS5xxx_CMD_ADC_2048:
+        elif (cmd & 0x0f) == MS5607_CMD_ADC_2048:
             time.sleep(0.006)
-        elif (cmd & 0x0f) == MS5xxx_CMD_ADC_4096:
+        elif (cmd & 0x0f) == MS5607_CMD_ADC_4096:
             time.sleep(0.01)
 
-        #bus.write_byte_data(self.addr, 0, MS5xxx_CMD_ADC_READ)
-
-        (data2, data1, data0) = bus.read_i2c_block_data(self.addr, MS5xxx_CMD_ADC_READ, 3)
+        (data2, data1, data0) = bus.read_i2c_block_data(self.addr, MS5607_CMD_ADC_READ, 3)
 
         value = (data2 << 16) + (data1 << 8) + data0
         
@@ -68,8 +61,8 @@ class MS5607:
         return value
 
     def update(self):
-        D2=self.read_adc(MS5xxx_CMD_ADC_D2+MS5xxx_CMD_ADC_4096)
-        D1=self.read_adc(MS5xxx_CMD_ADC_D1+MS5xxx_CMD_ADC_4096)
+        D2=self.read_adc(MS5607_CMD_ADC_D2+MS5607_CMD_ADC_4096)
+        D1=self.read_adc(MS5607_CMD_ADC_D1+MS5607_CMD_ADC_4096)
         
         # calculate 1st order pressure and temperature (MS5607 1st order algorithm)
         dT=D2-self.C[5]*(2**8)
@@ -98,9 +91,11 @@ class MS5607:
         self.P=(((D1*SENS)/(2**21)-OFF)/(2**15))
 
     def get_temp(self):
+        # degrees C
         return self.TEMP/100
 
     def get_pres(self):
+        # mBar
         return self.P/100
 
 
@@ -109,7 +104,7 @@ if __name__ == "__main__":
     sens.read_prom()
     sens.update()
 
-    print("Temperature: " + str(sens.get_temp()))
-    print("Pressure: " + str(sens.get_pres()))
+    print("Temperature: " + "{0:.2f}".format(sens.get_temp()) + " ºC")
+    print("Pressure: " + "{0:.2f}".format(sens.get_pres()) + " mBar")
 
 
