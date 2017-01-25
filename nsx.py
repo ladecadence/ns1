@@ -7,10 +7,12 @@ import datetime
 import RPi.GPIO as GPIO
 
 import ashabgps
-import mcp3008
+import mcp3002
+import ms5607
 import ds18b20
 import log
 import pyRF95.rf95 as rf95
+import led
 
 ############ CONFIGURATION ############
 
@@ -24,10 +26,6 @@ TEST_MSG2="info@ashab.space "
 TEST_MSG=True
 
 # pins
-SPI_CLK=11
-SPI_MISO=9
-SPI_MOSI=10
-SPI_CE0=8
 BATT_EN_PIN=24
 
 # Field separator
@@ -48,6 +46,8 @@ rf95 = rf95.RF95(RF95_CS, RF95_INT)
 TELEM_REPEAT=5
 TELEM_DELAY=10
 
+# ADC SPI CS
+ADC_CS = 1
 # voltage ADC channel
 VOLT_ADC = 0
 # voltage correction
@@ -57,6 +57,13 @@ VOLT_MULTIPLIER = 1
 # temperature sensors
 TEMP_INT_ADDR = "28-031682a91bff"
 TEMP_EXT_ADDR = "28-0000079e9f12"
+
+# barometer
+BARO_I2C_BUS = 1
+BARO_I2C_ADDR = 0x77
+
+# LED
+LED_PIN = 17
 
 # FILES AND PROGRAMS
 
@@ -97,11 +104,19 @@ GPIO.setup(BATT_EN_PIN, GPIO.OUT)
 GPIO.output(BATT_EN_PIN, False)
 
 # ADC
-#adc = mcp3008.Mcp3008(SPI_CLK, SPI_MOSI, SPI_MISO, SPI_CE0)
+adc = mcp3002.Mcp3002(ADC_CS)
 
 # temperature sensors
 ds18b20_int = ds18b20.Ds18b20(TEMP_INT_ADDR)
 ds18b20_ext = ds18b20.Ds18b20(TEMP_EXT_ADDR)
+
+# barometer
+baro = ms5607.MS5607(BARO_I2C_BUS, BARO_I2C_ADDR)
+baro.read_prom()
+
+# led
+
+led = led.LED(LED_PIN)
 
 # ascension rate
 # aprs packet time
@@ -112,9 +127,14 @@ last_altitude = 0
 ######################################################
 
 def read_voltage():
+    # Enable voltage divider
+    GPIO.output(BATT_EN_PIN, True)
+    time.sleep(0.1)
     # adc value
-    #adc_value=adc.read(VOLT_ADC)
-    adc_value = 0.0
+    adc_value=adc.read(VOLT_ADC)
+    # disable it
+    GPIO.output(BATT_EN_PIN, False)
+
     # voltage divisor at 3.3V, 10bit ADC so
     v = VOLT_MULTIPLIER * VOLT_DIVIDER * (adc_value*3.3/1023.0)
     return v
@@ -237,6 +257,7 @@ def send_ssdv_image():
         ssdv_file.seek((i*256)+1, 0)
         rf95.send(rf95.bytes_to_data(ssdv_file.read(255)))
         print("Sent packet" + str(i))
+        led.blink()
         time.sleep(0.5)                 # processing time
     # Done
     rf95.set_mode_idle()
@@ -256,14 +277,15 @@ def gen_telemetry():
     debug_log.log(log.LogType.DATA, "BATT: " + str(voltage))
     ascension_rate = get_ascension_rate()
     try:
-        baro_pressure = baro.read_pressure()
+        baro.update()
+        baro_pressure = baro.get_pres()
         debug_log.log(log.LogType.DATA, "BARO: " + str(baro_pressure))
-        baro_altitude = baro.read_altitude()
-        debug_log.log("log.LogType.DATA, BALT: " + str(baro_altitude))
-        baro_temp = baro.read_temperature()
+        baro_altitude = baro.get_alt()
+        debug_log.log(log.LogType.DATA, "BALT: " + str(baro_altitude))
+        baro_temp = baro.get_temp()
         debug_log.log(log.LogType.DATA, "BTEMP: " + str(baro_temp))
-    except:
-        debug_log.log(log.LogType.ERR, "Problem with barometer, using default values")
+    except Exception as e:
+        debug_log.log(log.LogType.ERR, "Problem with barometer, using default values : " + str(e))
         baro_pressure = 1013.2
         baro_altitude = 0
         baro_temp = 15
@@ -292,7 +314,7 @@ def gen_telemetry():
             str(gps.heading) + SEPARATOR + \
             str(gps.speed) + SEPARATOR + "A=" + str(gps.altitude) + \
             SEPARATOR + "V=" + "%.2f" % voltage + SEPARATOR + "P=" + \
-            "%.1f" % (baro_pressure/100) + SEPARATOR + \
+            "%.1f" % (baro_pressure) + SEPARATOR + \
             "TI=" + "%.2f" % temp_int + SEPARATOR + "TO=" + \
             "%.2f" % temp_ext + hour_date + SEPARATOR + "GPS=" + \
             "%09.6f%s,%010.6f%s" % (gps.decimal_latitude(), gps.ns , \
@@ -329,6 +351,7 @@ if __name__ == "__main__":
     # init radio
     if not rf95.init():
         debug_log.log(log.LogType.ERR, "RF95 not found")
+        led.err()
         cleanup()
         quit(1)
     else:
@@ -344,6 +367,7 @@ if __name__ == "__main__":
             telem_str = gen_telemetry()
             rf95.send(rf95.str_to_data(telem_str))
             rf95.wait_packet_sent()
+            led.blink()
             debug_log.log(log.LogType.INFO, "LoRa Telemetry packet sent")
             debug_log.log(log.LogType.INFO, telem_str)
             # wait X secs

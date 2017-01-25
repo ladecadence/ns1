@@ -1,7 +1,7 @@
 #!/bin/bash
-sleep 30
-cd /home/pi/ashab
+sleep 20
+cd /home/pi/ASHAB/ns1
 {
-    python /home/pi/ashab/nsx.py
+    python3 /home/pi/ASHAB/ns1/nsx.py
 } >> /home/pi/startup.log 2>&1
 

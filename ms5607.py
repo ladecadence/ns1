@@ -97,6 +97,10 @@ class MS5607:
     def get_pres(self):
         # mBar
         return self.P/100
+    
+    def get_alt(self):
+        # m
+        return 0
 
 
 if __name__ == "__main__":
