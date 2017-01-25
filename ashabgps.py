@@ -25,16 +25,22 @@ class AshabGPS:
         # get GGA line from serial port
         self.line_gga = ""
         count = 0
-        while self.line_gga[3:6] != "GGA" and count < 10:
-            self.line_gga = self.port.readline()
+        while self.line_gga[3:6] != "GGA":
+            self.line_gga = self.port.readline().decode('ascii')
             count = count + 1
+            if count > 9:
+                self.line_gga=""
+                break
 
         # and get RMC line from serial port
         self.line_rmc = ""
         count = 0
-        while self.line_rmc[3:6] != "RMC" and count < 10:
-            self.line_rmc = self.port.readline()
+        while self.line_rmc[3:6] != "RMC":
+            self.line_rmc = self.port.readline().decode('ascii')
             count = count + 1
+            if count > 9:
+                self.line_rmc=""
+                break
 
 
         # now parse data
@@ -95,9 +101,9 @@ class AshabGPS:
 if __name__ == "__main__":
    
     if len(sys.argv) < 2:
-        gps = GsbcGPS(SERIAL_PORT, SERIAL_SPEED)
+        gps = AshabGPS(SERIAL_PORT, SERIAL_SPEED)
     else:
-        gps = GsbcGPS(sys.argv[1], SERIAL_SPEED)
+        gps = AshabGPS(sys.argv[1], SERIAL_SPEED)
 
     while 1:
         gps.update()
