@@ -8,6 +8,7 @@ SERIAL_SPEED = "9600"
 
 class AshabGPS:
     def __init__(self, serial_port, serial_speed):
+        self.time = "000000.00"
         self.latitude = "4331.50"
         self.ns="N"
         self.longitude = "00536.76"
@@ -22,6 +23,8 @@ class AshabGPS:
         self.port = serial.Serial(serial_port, serial_speed, timeout=3)
 
     def update(self):
+        # discard old data
+        self.port.flushInput()
         # get GGA line from serial port
         self.line_gga = ""
         count = 0
@@ -49,22 +52,23 @@ class AshabGPS:
 
         if len(gga_data) >= 9 and len(rmc_data) >=8:
             try:         
+                self.time = gga_data[1]
                 # good fix?
-                        if int(gga_data[7]) < 4:
-                            self.sats = int(gga_data[7])
-                            return
+                if int(gga_data[7]) < 4:
+                    self.sats = int(gga_data[7])
+                    return
 
-                        # ok, good fix, record data
-                        self.latitude = gga_data[2]
-                        self.ns = gga_data[3]
-                        self.longitude = gga_data[4]
-                        self.ew = gga_data[5]
-                        self.sats = int(gga_data[7])
-                        self.altitude = gga_data[9]
-                        self.speed = rmc_data[7]
-                        self.heading = rmc_data[8]
-                        if self.heading == "":
-                            self.heading = 0
+                # ok, good fix, record data
+                self.latitude = gga_data[2]
+                self.ns = gga_data[3]
+                self.longitude = gga_data[4]
+                self.ew = gga_data[5]
+                self.sats = int(gga_data[7])
+                self.altitude = gga_data[9]
+                self.speed = rmc_data[7]
+                self.heading = rmc_data[8]
+                if self.heading == "":
+                    self.heading = 0
             except:
                 pass
 
@@ -95,7 +99,8 @@ class AshabGPS:
 
         return degrees + fraction
 
-
+    def get_time(self):
+        return (self.time[:2], self.time[2:4], self.time[4:])
 
 
 if __name__ == "__main__":
@@ -116,5 +121,8 @@ if __name__ == "__main__":
             print( ", alt: " + str(gps.altitude))
             print( ", speed: " + str(gps.speed))
             print( ", hdg: " + str(gps.heading))
+            #print(gps.line_gga)
+        else:
             print(gps.line_gga)
+            print(gps.get_time())
         time.sleep(1)
