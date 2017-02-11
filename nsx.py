@@ -249,6 +249,7 @@ def send_ssdv_image():
     # ok, get number of packets to send
     ssdv_packets = os.path.getsize(ssdv_filename)//256
 
+    debug_log.log(log.LogType.INFO, "Sending SSDV Image #" + str(ssdv_image_num))
     # Send ssdv packets
     # We are ignoring the first sync byte of each packet
     # as the rf95 packet payload size is just 255 bytes.
@@ -256,13 +257,14 @@ def send_ssdv_image():
     for i in range(ssdv_packets):
         ssdv_file.seek((i*256)+1, 0)
         rf95.send(rf95.bytes_to_data(ssdv_file.read(255)))
-        print("Sent packet" + str(i))
         led.blink()
         time.sleep(0.5)                 # processing time
     # Done
     rf95.set_mode_idle()
     ssdv_file.close()
     ssdv_image_num = ssdv_image_num + 1
+
+    debug_log.log(log.LogType.INFO, "Sent " + str(ssdv_packets) + " packets from SSDV Image #" + str(ssdv_image_num))
 
 def gen_telemetry():
     # get data from GPS and sensors
@@ -344,6 +346,14 @@ if __name__ == "__main__":
     # debug_log.log(log.LogType.INFO, "Mounting pendrive: " + str(mount))
 
     # initial time
+    # get time from gps
+    gps.update()
+    hours, mins, secs = gps.get_time()
+    # set system time
+    if hours!="" and mins!="" and secs!="":
+        stat = gps.set_system_time()
+        debug_log.log(log.LogType.INFO, "System clock set: " + str(stat))
+
     last_ascension_rate_time = datetime.datetime.now()
 
     debug_log.log(log.LogType.INFO, "Starting...")
