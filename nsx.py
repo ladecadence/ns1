@@ -13,6 +13,7 @@ import ds18b20
 import log
 import pyRF95.rf95 as rf95
 import led
+import image
 
 ############ CONFIGURATION ############
 
@@ -21,9 +22,7 @@ ID="EA1IDZ"
 SUBID="/NSX"
 
 # Test
-TEST_MSG1="ASHAB High Altitude Balloon NSX"
-TEST_MSG2="info@ashab.space "
-TEST_MSG=True
+MSG="ASHAB High Altitude Balloon NSX\ninfo@ashab.space"
 
 # pins
 BATT_EN_PIN=24
@@ -67,32 +66,29 @@ LED_PIN = 17
 
 # FILES AND PROGRAMS
 
-# directory END SLASH!!!
-directory = "/home/pi/ASHAB/"
+# DIRECTORY END SLASH!!!
+DIRECTORY = "/home/pi/ASHAB/"
 
 # SSDV
+IMAGES_DIR = DIRECTORY + "images/"
 SSDV_SIZE = "640x480"
+SSDV_NAME = "ssdv.jpg"
 ssdv_image_num = 0
 
-# sstv file
-sstv_png = directory + "sstv.jpg"
-
-# snapsstv
-pics_dir = directory + "pictures/"
-# pics_dir = "/media/GSBC-PICS/"
-raspistill_cmd = "/usr/bin/raspistill -t 1000 -st -e jpg "
-convert_cmd = "/usr/bin/convert "
-mogrify_cmd = "/usr/bin/mogrify "
-#pisstv_cmd = "pisstvpp/pisstvpp -pr36 -r44100 "
-ssdv_cmd = "/home/pi/ASHAB/ssdv/ssdv -e -c " + ID + " -i "
-
 # logging
-log_file = directory + "log.txt"
+LOG_FILE = DIRECTORY + "log.txt"
 
-# log
-debug_log = log.Log(log_file)
+# ascension rate
+last_ascension_rate_time = 0
+# last altitude
+last_altitude = 0
+
 
 ######################################################
+# OBJECTS
+
+# log
+debug_log = log.Log(LOG_FILE)
 
 # GPS
 gps = ashabgps.AshabGPS(GPS_SERIAL, GPS_SPEED)
@@ -115,14 +111,10 @@ baro = ms5607.MS5607(BARO_I2C_BUS, BARO_I2C_ADDR)
 baro.read_prom()
 
 # led
-
 led = led.LED(LED_PIN)
 
-# ascension rate
-# aprs packet time
-last_ascension_rate_time = 0
-# last altitude
-last_altitude = 0
+# Images
+pictures = image.Image(IMAGES_DIR)
 
 ######################################################
 
@@ -172,70 +164,44 @@ def get_ascension_rate():
 
 def gen_ssdv_file():
     # take picture
-    hour_date = datetime.datetime.now()
-    hour_date = "%02d-%02d-%d_%02d_%02d" % (hour_date.day, \
-            hour_date.month, hour_date.year, hour_date.hour, \
-            hour_date.minute)
+    pic_name = pictures.take()
+    
+    if pic_name == None:
+        debug_log.log(log.LogType.ERR, "Problem taking picture")
+        return None
 
-    try:
-        pic_name = pics_dir + "sstvpic_" + hour_date + ".jpg"
-        stat =  os.system(raspistill_cmd + "-o " + pic_name)
-        debug_log.log(log.LogType.INFO, "taking picture: " + str(stat))
+    debug_log.log(log.LogType.INFO, "Took picture: " + pic_name)
 
-        # generate resized picture
-        stat =  os.system(convert_cmd + pic_name + \
-                " -resize " + SSDV_SIZE +" " + sstv_png)
-        debug_log.log(log.LogType.INFO, "resize picture: " + str(stat))
+    # generate resized picture
+    stat = pictures.resize(SSDV_SIZE, pic_name, SSDV_NAME)
 
-        # add ID and date to the picture
-        stat = os.system(mogrify_cmd + \
-                "-fill white -pointsize 24 -draw " + \
-                "\"text 10,40 '" + ID + SUBID + "'\" " + sstv_png)
-        debug_log.log(log.LogType.INFO, "Add ID 1: " + str(stat))
-        stat =  os.system(mogrify_cmd + \
-                "-pointsize 24 -draw " + \
-                "\"text 12,42 '" + ID + SUBID + "'\" " + sstv_png)
-        debug_log.log(log.LogType.INFO, "Add ID 2: " + str(stat))
-        stat =  os.system(mogrify_cmd + \
-                "-pointsize 14 -draw " + \
-                "\"text 10,60 '" + hour_date + "'\" " + sstv_png)
-        debug_log.log(log.LogType.INFO, "Add Date 1: " + str(stat))
-        stat =  os.system(mogrify_cmd + \
-                "-fill white -pointsize 14 -draw " + \
-                "\"text 11,61 '" + hour_date + "'\" " + sstv_png)
-        debug_log.log(log.LogType.INFO, "Add Date 2: " + str(stat))
+    if stat == None:
+        debug_log.log(log.LogType.ERR, "Problem resizing picture")
+        return None
+    
+    debug_log.log(log.LogType.INFO, "Resized picture: " + pic_name)
+    
+    # add ID and date to the picture
+    stat = pictures.add_info(SSDV_NAME, ID + SUBID, MSG)
+    if stat == None:
+        debug_log.log(log.LogType.ERR, "Problem adding info to picture")
+        return None
+    
+    debug_log.log(log.LogType.INFO, "Added info to picture: " + SSDV_NAME)
+      
+    # SSDV
+    stat = pictures.gen_ssdv(SSDV_NAME, ID, ssdv_image_num)
+    if stat == None:
+        debug_log.log(log.LogType.ERR, "Problem generating SSDV file")
+        return None
 
-        if TEST_MSG:
-            stat =  os.system(mogrify_cmd + \
-                    "-fill black -pointsize 18 -draw " + \
-                    "\"text 10,85 '" + TEST_MSG1 + "'\" " + sstv_png)
-            stat =  os.system(mogrify_cmd + \
-                    "-fill white -pointsize 18 -draw " + \
-                    "\"text 11,86 '" + TEST_MSG1 + "'\" " + sstv_png)
-            stat =  os.system(mogrify_cmd + \
-                    "-fill black -pointsize 18 -draw " + \
-                    "\"text 10,105 '" + TEST_MSG2 + "'\" " + sstv_png)
-            stat =  os.system(mogrify_cmd + \
-                    "-fill white -pointsize 18 -draw " + \
-                    "\"text 11,106 '" + TEST_MSG2 + "'\" " + sstv_png)
-            debug_log.log(log.LogType.INFO, "Add test MSG: " + str(stat))
-        
-        # SSDV
-        print ( ssdv_cmd + \
-            str(ssdv_image_num) + " " + \
-            sstv_png + " " + sstv_png + ".bin")
-        stat = os.system(ssdv_cmd + \
-                str(ssdv_image_num) + " " + \
-                sstv_png + " " + sstv_png + ".bin")
-        debug_log.log(log.LogType.INFO, "Generated SSDV binary file: " + str(stat))
+    debug_log.log(log.LogType.INFO, "Generated SSDV binary file")
 
-
-    except Exception as e:
-        debug_log.log(log.LogType.ERR, "Problem taking picture: " + str(e))
+    return stat
 
 def send_ssdv_image():
     global ssdv_image_num
-    ssdv_filename = sstv_png + ".bin"
+    ssdv_filename = IMAGES_DIR + SSDV_NAME + ".bin"
     try:
         ssdv_file = open(ssdv_filename, "rb")
     except IOError as e:
@@ -262,9 +228,11 @@ def send_ssdv_image():
     # Done
     rf95.set_mode_idle()
     ssdv_file.close()
+    
+    debug_log.log(log.LogType.INFO, "Sent " + str(ssdv_packets) + " packets from SSDV Image #" + str(ssdv_image_num))
+
     ssdv_image_num = ssdv_image_num + 1
 
-    debug_log.log(log.LogType.INFO, "Sent " + str(ssdv_packets) + " packets from SSDV Image #" + str(ssdv_image_num))
 
 def gen_telemetry():
     # get data from GPS and sensors
@@ -273,8 +241,8 @@ def gen_telemetry():
             hour_date.month, hour_date.year) + SEPARATOR + \
             "%02d:%02d:%02d" % (hour_date.hour, \
             hour_date.minute, hour_date.second)
-    #gps.update()
-    debug_log.log(log.LogType.DATA, "NMEA: " + gps.line_gga)
+    gps.update()
+    debug_log.log(log.LogType.DATA, "NMEA: " + gps.line_gga.strip())
     voltage = read_voltage()
     debug_log.log(log.LogType.DATA, "BATT: " + str(voltage))
     ascension_rate = get_ascension_rate()
@@ -323,8 +291,8 @@ def gen_telemetry():
             gps.decimal_longitude(), gps.ew) + SEPARATOR + \
             "SATS=" + str(gps.sats) + SEPARATOR + "AR=" + \
             "%.2f" % ascension_rate
-    if TEST_MSG:
-        aprs_msg = aprs_msg + SEPARATOR + TEST_MSG1 + " " + TEST_MSG2 \
+    if MSG:
+        aprs_msg = aprs_msg + SEPARATOR + MSG.replace("\n", " - ") \
                 + "\n"
     else:
         aprs_msg = aprs_msg + "\n"
@@ -384,6 +352,7 @@ if __name__ == "__main__":
             time.sleep(TELEM_DELAY)
 
         # send ssdv image
-        gen_ssdv_file()
-        send_ssdv_image()
-        time.sleep(5)
+        if gen_ssdv_file() != None:
+            send_ssdv_image()
+            time.sleep(5)
+

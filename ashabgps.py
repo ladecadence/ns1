@@ -2,6 +2,7 @@ import datetime
 import sys
 import serial
 import time
+import os
 
 SERIAL_PORT = "/dev/ttyAMA0"
 SERIAL_SPEED = "9600"
@@ -101,6 +102,12 @@ class AshabGPS:
 
     def get_time(self):
         return (self.time[:2], self.time[2:4], self.time[4:])
+
+    def set_system_time(self):
+        date_cmd = "sudo date --set=\"" + self.time[:2] + ":" + self.time[2:4] + \
+                    ":" + self.time[4:] + "\""
+        stat = os.system(date_cmd)
+        return stat
 
 
 if __name__ == "__main__":
