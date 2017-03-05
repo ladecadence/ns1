@@ -10,7 +10,7 @@ SERIAL_SPEED = "9600"
 class AshabGPS:
     def __init__(self, serial_port, serial_speed):
         self.time = "000000.00"
-        self.latitude = "4332.94N"
+        self.latitude = "4332.94"
         self.ns="N"
         self.longitude = "00539.78"
         self.ew="W"
