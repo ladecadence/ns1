@@ -30,7 +30,7 @@ class AshabGPS:
         self.line_gga = ""
         count = 0
         while self.line_gga[3:6] != "GGA":
-            self.line_gga = self.port.readline().decode('ascii')
+            self.line_gga = self.port.readline().decode('cp850')
             count = count + 1
             if count > 9:
                 self.line_gga=""
@@ -40,7 +40,7 @@ class AshabGPS:
         self.line_rmc = ""
         count = 0
         while self.line_rmc[3:6] != "RMC":
-            self.line_rmc = self.port.readline().decode('ascii')
+            self.line_rmc = self.port.readline().decode('cp850')
             count = count + 1
             if count > 9:
                 self.line_rmc=""
