@@ -1,22 +1,32 @@
 #!/usr/bin/env python3
 
+# ASHAB.space 2017
+
 import sys
 import os
 import time
 import datetime
 
+
+# module configuration
 RASPISTILL = "/usr/bin/raspistill -t 1000 -st -e jpg "
 CONVERT = "/usr/bin/convert "
 MOGRIFY = "/usr/bin/mogrify "
 SSTV = "pisstvpp/pisstvpp -pr36 -r44100 "
 SSDV = "/home/pi/ASHAB/ssdv/ssdv -e -c " + "TEMPID" + " -i "
 
+# Image class, takes pictures from the raspi camera and prepares them to be
+# sent by radio.
 class Image:
+    # Output directory for the images
     def __init__(self, dir):
         self.pics_dir = dir
         if not self.pics_dir.endswith("/"):
             self.pics_dir = self.pics_dir + "/"
 
+    # Takes a picture and saves it on the output directory
+    # File name is date and time when the picture was taken
+    # Returns pic name or None if there was an error
     def take(self):
         self.hour_date = datetime.datetime.now()
         self.hour_date = "%02d-%02d-%d_%02d_%02d" % (self.hour_date.day, \
@@ -33,6 +43,7 @@ class Image:
         except Exception as e:
             return None
 
+    # Resizes picture, size is a string WIDTHxHEIGHT
     def resize(self, size, pic_name, resized_name):
         try:
             stat =  os.system(CONVERT + pic_name + \
@@ -42,7 +53,8 @@ class Image:
             return stat
         except Exception as e:
             return None
-    
+
+    # Adds info text to the pictures to be sent
     def add_info(self, name, ID, MSG):
         try:
             stat = os.system(MOGRIFY + \
@@ -83,6 +95,7 @@ class Image:
         except Exception as e:
             return None
 
+    # Generates a SSDV binary file from the image passed
     def gen_ssdv(self, name, ID, num):
         try:
             cmd = SSDV.replace("TEMPID", ID)
@@ -96,6 +109,7 @@ class Image:
             return None
 
 
+# Test module if executed as a program
 if __name__ == "__main__":
     pic = Image("/home/pi/tmp")
     picture_name = pic.take()

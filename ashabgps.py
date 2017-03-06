@@ -4,9 +4,11 @@ import serial
 import time
 import os
 
+# module configuration
 SERIAL_PORT = "/dev/ttyAMA0"
 SERIAL_SPEED = "9600"
 
+# Main GPS control class
 class AshabGPS:
     def __init__(self, serial_port, serial_speed):
         self.time = "000000.00"
@@ -24,11 +26,17 @@ class AshabGPS:
         self.port = serial.Serial(serial_port, serial_speed, timeout=3)
 
     def update(self):
+        # updates GPS data.
+        # gets nmea GGA and RMC sentences, parses them and fills all the 
+        # relevant data needed for tracking
+
         # discard old data
         self.port.flushInput()
+
         # get GGA line from serial port
         self.line_gga = ""
         count = 0
+        # tries 10 times, if not found returns empty string
         while self.line_gga[3:6] != "GGA":
             self.line_gga = self.port.readline().decode('cp850')
             count = count + 1
@@ -48,10 +56,12 @@ class AshabGPS:
 
 
         # now parse data
+        # NMEA data is split by commas
         gga_data = self.line_gga.split(",")
         rmc_data = self.line_rmc.split(",")
 
         if len(gga_data) >= 9 and len(rmc_data) >=8:
+            # if the number of fileds is correct
             try:         
                 self.time = gga_data[1]
                 # good fix?
@@ -73,6 +83,7 @@ class AshabGPS:
             except:
                 pass
 
+    # We have a good fix if the GPS is tracking at least 4 sats
     def good_fix(self):
         self.update()
         if self.sats >= 4:
@@ -80,6 +91,7 @@ class AshabGPS:
         else:
             return False
 
+    # convert from NMEA to decimal coordinate format
     def decimal_longitude(self):
         try:
             degrees = float(self.longitude[:3])
@@ -100,16 +112,18 @@ class AshabGPS:
 
         return degrees + fraction
 
+    # Gets a formatted time string from the GPS
     def get_time(self):
         return (self.time[:2], self.time[2:4], self.time[4:])
 
+    # Sets the system time from GPS time (Linux)
     def set_system_time(self):
         date_cmd = "sudo date --set=\"" + self.time[:2] + ":" + self.time[2:4] + \
                     ":" + self.time[4:] + "\""
         stat = os.system(date_cmd)
         return stat
 
-
+# Test the module if called as program
 if __name__ == "__main__":
    
     if len(sys.argv) < 2:
