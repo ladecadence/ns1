@@ -4,6 +4,7 @@ import sys
 import os
 import time
 import datetime
+import configparser
 import RPi.GPIO as GPIO
 
 import ashabgps
@@ -15,108 +16,44 @@ import pyRF95.rf95 as rf95
 import led
 import image
 
-############ CONFIGURATION ############
-
-# ID
-ID="EA1IDZ"
-SUBID="/NSX"
-
-# Test
-MSG="ASHAB High Altitude Balloon NSX\ninfo@ashab.space"
-
-# pins
-BATT_EN_PIN=24
-
-# Field separator
-SEPARATOR = "/"
-
-# GPS
-GPS_SERIAL = "/dev/ttyAMA0"
-GPS_SPEED = 9600
-
-# Radio
-RF95_CS = 0
-RF95_INT = 25
-RF95_FREQ = 868.5
-RF95_PWR = 5
-rf95 = rf95.RF95(RF95_CS, RF95_INT)
-
-# delays
-TELEM_REPEAT=5
-TELEM_DELAY=10
-
-# ADC SPI CS
-ADC_CS = 1
-# voltage ADC channel
-VOLT_ADC = 0
-# voltage correction
-VOLT_DIVIDER = 3.2
-VOLT_MULTIPLIER = 1
-
-# temperature sensors
-TEMP_INT_ADDR = "28-031682a91bff"
-TEMP_EXT_ADDR = "28-0000079e9f12"
-
-# barometer
-BARO_I2C_BUS = 1
-BARO_I2C_ADDR = 0x77
-
-# LED
-LED_PIN = 17
-
-# FILES AND PROGRAMS
-
-# DIRECTORY END SLASH!!!
-DIRECTORY = "/home/pi/ASHAB/"
-
-# SSDV
-IMAGES_DIR = DIRECTORY + "images/"
-SSDV_SIZE = "640x480"
-SSDV_NAME = "ssdv.jpg"
-ssdv_image_num = 0
-
-# logging
-LOG_FILE = DIRECTORY + "log.txt"
+######################################################
+# Globals
 
 # ascension rate
 last_ascension_rate_time = 0
 # last altitude
 last_altitude = 0
 
+# counter for SSDV images sent
+ssdv_image_num = 0
 
 ######################################################
 # OBJECTS
 
 # log
-debug_log = log.Log(LOG_FILE)
+debug_log = None
 
 # GPS
-gps = ashabgps.AshabGPS(GPS_SERIAL, GPS_SPEED)
-
-# Set GPIOs
-GPIO.setmode(GPIO.BCM)
-
-GPIO.setup(BATT_EN_PIN, GPIO.OUT)
-GPIO.output(BATT_EN_PIN, False)
+gps = None
 
 # ADC
-adc = mcp3002.Mcp3002(ADC_CS)
+adc = None
 
 # temperature sensors
-ds18b20_int = ds18b20.Ds18b20(TEMP_INT_ADDR)
-ds18b20_ext = ds18b20.Ds18b20(TEMP_EXT_ADDR)
+ds18b20_int = None
+ds18b20_ext = None
 
 # barometer
-baro = ms5607.MS5607(BARO_I2C_BUS, BARO_I2C_ADDR)
-baro.read_prom()
+baro = None
 
 # led
-led = led.LED(LED_PIN)
+status_led = None
 
 # Images
-pictures = image.Image(IMAGES_DIR)
+pictures = None
 
 ######################################################
+# Functions
 
 def read_voltage():
     # Enable voltage divider
@@ -223,7 +160,7 @@ def send_ssdv_image():
     for i in range(ssdv_packets):
         ssdv_file.seek((i*256)+1, 0)
         rf95.send(rf95.bytes_to_data(ssdv_file.read(255)))
-        led.blink()
+        status_led.blink()
         time.sleep(0.5)                 # processing time
         rf95.wait_packet_sent()
     # Done
@@ -307,12 +244,112 @@ def cleanup():
 
 if __name__ == "__main__":
 
+    # Read and parse configuration
+    try:
+        config = configparser.ConfigParser()
+        config.read('nsx.cfg')
+    except Exception as e:
+        # create an emergency log
+        debug_log = log.Log("/tmp/nsx-emergency.log")
+        debug_log.log(log.LogType.ERR, "Unable to open the configuration file: " + str(e))
+        quit(1)
+
+    # ok, get config values
+    try: 
+        # Mission
+        ID = config.get("mission", "id")
+        SUBID = config.get("mission", "subid")
+        MSG = config.get("mission", "msg")
+        SEPARATOR = config.get("mission", "separator")
+        TELEM_REPEAT = config.getint("mission", "packet_repeat")
+        TELEM_DELAY = config.getint("mission", "packet_delay")
+
+        # GPIO
+        BATT_EN_PIN = config.getint("gpio", "batt_enable_pin")
+        LED_PIN = config.getint("gpio", "led_pin")
+        
+        # GPS
+        GPS_SERIAL = config.get("gps", "serial_port")
+        GPS_SPEED = config.getint("gps", "speed")
+
+        # LoRa
+        RF95_CS = config.getint("lora", "cs")
+        RF95_INT = config.getint("lora", "int_pin")
+        RF95_FREQ = config.getfloat("lora", "freq")
+        RF95_PWR = config.getint("lora", "low_pwr")
+        RF95_HPWR = config.getint("lora", "high_pwr")
+
+        # ADC
+        ADC_CS = config.getint("adc", "cs")
+        VOLT_ADC = config.getint("adc", "vbatt")
+        VOLT_DIVIDER = config.getfloat("adc", "v_divider")
+        VOLT_MULTIPLIER = config.getfloat("adc", "v_mult")
+
+        # temperature sensors
+        TEMP_INT_ADDR = config.get("temp", "internal_addr")
+        TEMP_EXT_ADDR = config.get("temp", "external_addr")
+
+        # barometer
+        BARO_I2C_BUS = config.getint("baro", "i2c_bus")
+        BARO_I2C_ADDR = int(config.get("baro", "i2c_addr"), 16)
+
+        # paths
+        DIRECTORY = config.get("paths", "main_dir")
+        IMAGES_DIR = config.get("paths", "images_dir")
+        LOG_FILE = config.get("paths", "log")
+
+        # SSDV
+        SSDV_SIZE = config.get("ssdv", "size")
+        SSDV_NAME = config.get("ssdv", "name")
+    except Exception as e:
+         # create an emergency log
+        debug_log = log.Log("/tmp/nsx-emergency.log")
+        debug_log.log(log.LogType.ERR, "Unable to parse the configuration file: " + str(e))
+        quit(1)
+
+    # Ok, create objects
+
+    # log
+    debug_log = log.Log(LOG_FILE)
     # init logging
     debug_log.reset()
+
+    # GPS
+    gps = ashabgps.AshabGPS(GPS_SERIAL, GPS_SPEED)
+
+    # LoRa
+    rf95 = rf95.RF95(RF95_CS, RF95_INT)
+
+    # ADC
+    adc = mcp3002.Mcp3002(ADC_CS)
+
+    # temperature sensors
+    ds18b20_int = ds18b20.Ds18b20(TEMP_INT_ADDR)
+    ds18b20_ext = ds18b20.Ds18b20(TEMP_EXT_ADDR)
+
+    # barometer
+    baro = ms5607.MS5607(BARO_I2C_BUS, BARO_I2C_ADDR)
+    try:
+        baro.read_prom()
+    except Exception as e:
+        debug_log.log(log.LogType.ERR, "Problem with barometer: " + str(e))
+
+    # led
+    status_led = led.LED(LED_PIN)
+
+    # Images
+    pictures = image.Image(IMAGES_DIR)
+
 
     # be sure that the pictures drive is mounted
     # mount = os.system("udisks --mount /dev/sda1")
     # debug_log.log(log.LogType.INFO, "Mounting pendrive: " + str(mount))
+
+    # Set GPIOs
+    GPIO.setmode(GPIO.BCM)
+
+    GPIO.setup(BATT_EN_PIN, GPIO.OUT)
+    GPIO.output(BATT_EN_PIN, False)
 
     # initial time
     # get time from gps
@@ -330,7 +367,7 @@ if __name__ == "__main__":
     # init radio
     if not rf95.init():
         debug_log.log(log.LogType.ERR, "RF95 not found")
-        led.err()
+        status_led.err()
         cleanup()
         quit(1)
     else:
@@ -346,7 +383,7 @@ if __name__ == "__main__":
             telem_str = gen_telemetry()
             rf95.send(rf95.str_to_data(telem_str))
             rf95.wait_packet_sent()
-            led.blink()
+            status_led.blink()
             debug_log.log(log.LogType.INFO, "LoRa Telemetry packet sent")
             debug_log.log(log.LogType.INFO, telem_str)
             # wait X secs
