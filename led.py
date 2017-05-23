@@ -25,9 +25,9 @@ class LED:
         # 5 Fast blinks
         for i in range(5):
             GPIO.output(self.pin, True)
-            time.sleep(0.01)
+            time.sleep(0.1)
             GPIO.output(self.pin, False)
-            time.sleep(0.01)
+            time.sleep(0.1)
 
     def cleanup(self):
         GPIO.cleanup(self.pin)
