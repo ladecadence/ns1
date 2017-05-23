@@ -30,58 +30,66 @@ class AshabGPS:
         # gets nmea GGA and RMC sentences, parses them and fills all the 
         # relevant data needed for tracking
 
-        # discard old data
-        self.port.flushInput()
+        try:
+            # discard old data
+            self.port.flushInput()
 
-        # get GGA line from serial port
-        self.line_gga = ""
-        count = 0
-        # tries 10 times, if not found returns empty string
-        while self.line_gga[3:6] != "GGA":
-            self.line_gga = self.port.readline().decode('cp850')
-            count = count + 1
-            if count > 9:
-                self.line_gga=""
-                break
+            # get GGA line from serial port
+            self.line_gga = ""
+            count = 0
+            # tries 10 times, if not found returns empty string
+            while self.line_gga[3:6] != "GGA":
+                self.line_gga = self.port.readline().decode('cp850')
+                count = count + 1
+                if count > 9:
+                    self.line_gga=""
+                    break
 
-        # and get RMC line from serial port
-        self.line_rmc = ""
-        count = 0
-        while self.line_rmc[3:6] != "RMC":
-            self.line_rmc = self.port.readline().decode('cp850')
-            count = count + 1
-            if count > 9:
-                self.line_rmc=""
-                break
+            # and get RMC line from serial port
+            self.line_rmc = ""
+            count = 0
+            while self.line_rmc[3:6] != "RMC":
+                self.line_rmc = self.port.readline().decode('cp850')
+                count = count + 1
+                if count > 9:
+                    self.line_rmc=""
+                    break
 
 
-        # now parse data
-        # NMEA data is split by commas
-        gga_data = self.line_gga.split(",")
-        rmc_data = self.line_rmc.split(",")
+            # now parse data
+            # NMEA data is split by commas
+            gga_data = self.line_gga.split(",")
+            rmc_data = self.line_rmc.split(",")
 
-        if len(gga_data) >= 9 and len(rmc_data) >=8:
-            # if the number of fileds is correct
-            try:         
-                self.time = gga_data[1]
-                # good fix?
-                if int(gga_data[7]) < 4:
+            if len(gga_data) >= 9 and len(rmc_data) >=8:
+                # if the number of fileds is correct
+                try:         
+                    self.time = gga_data[1]
+                    # good fix?
+                    if int(gga_data[7]) < 4:
+                        self.sats = int(gga_data[7])
+                        return
+
+                    # ok, good fix, record data
+                    self.latitude = gga_data[2]
+                    self.ns = gga_data[3]
+                    self.longitude = gga_data[4]
+                    self.ew = gga_data[5]
                     self.sats = int(gga_data[7])
-                    return
+                    self.altitude = gga_data[9]
+                    self.speed = rmc_data[7]
+                    self.heading = rmc_data[8]
+                    if self.heading == "":
+                        self.heading = 0
 
-                # ok, good fix, record data
-                self.latitude = gga_data[2]
-                self.ns = gga_data[3]
-                self.longitude = gga_data[4]
-                self.ew = gga_data[5]
-                self.sats = int(gga_data[7])
-                self.altitude = gga_data[9]
-                self.speed = rmc_data[7]
-                self.heading = rmc_data[8]
-                if self.heading == "":
-                    self.heading = 0
-            except:
-                pass
+                    # Ok, all  parsed
+                    return True
+                except:
+                    return False
+            else:
+                return False
+        except:
+            return False
 
     # We have a good fix if the GPS is tracking at least 4 sats
     def good_fix(self):

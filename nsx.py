@@ -225,6 +225,7 @@ def send_ssdv_image():
         rf95.send(rf95.bytes_to_data(ssdv_file.read(255)))
         led.blink()
         time.sleep(0.5)                 # processing time
+        rf95.wait_packet_sent()
     # Done
     rf95.set_mode_idle()
     ssdv_file.close()
