@@ -235,6 +235,14 @@ def gen_telemetry():
     else:
         aprs_msg = aprs_msg + "\n"
 
+
+    # message is 255 bytes (same as SSDV)
+    if len(aprs_msg) < 255:
+        # append zeros
+        while len(aprs_msg) < 255:
+            aprs_msg = aprs_msg + "\0"
+
+
     return aprs_msg
 
 def cleanup():
